@@ -94,7 +94,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+    <main className="flex min-h-screen flex-col items-center justify-between md:p-24 py-24">
       <div className=" flex flex-col gap-2 text-left">
         <h2 className="text-2xl font-bold mb-4">Income Tax Calculator</h2>
         <label htmlFor="previousSalary">Previous Salary</label>
@@ -103,7 +103,7 @@ export default function Home() {
           type="number"
           value={previousSalary}
           onChange={(e) => setPreviousSalary(parseFloat(e.target.value))}
-          className="border border-gray-300 p-2 mb-4 w-full text-gray-600"
+          className="border border-gray-300 p-2 mb-4 w-full text-gray-600 rounded-md"
           placeholder="Enter your annual income"
         />
         <div className="mb-32 grid  lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left gap-4">
@@ -112,32 +112,41 @@ export default function Home() {
             return (
               <div
                 key={index}
-                className="p-4 shadow-sm border border-dotted rounded-lg flex flex-col gap-3"
+                className="p-4 text-gray-500 shadow-sm border-2 border-dotted rounded-lg flex flex-col gap-3"
               >
                 <label htmlFor="newSalary">
                   New Salary{" "}
-                  <strong> {hike(salary, previousSalary).toFixed(2)}%</strong>
+                  <strong className="text-gray-200">
+                    {" "}
+                    {hike(salary, previousSalary).toFixed(2)}% Hike
+                  </strong>
                 </label>
                 <input
                   id="newSalary"
                   type="number"
                   value={salary}
                   onChange={(e) => handleIncomeChange(e, index)}
-                  className="border border-gray-300 p-2 mb-4 w-full text-gray-600"
+                  className="border border-gray-300 p-2 mb-4 w-full text-gray-600 rounded-md"
                   placeholder="Enter your annual income"
                 />
                 <div className="text-left flex flex-col gap-2">
                   <p className="">
                     Total Monthly Income :{"   "}
-                    {formatMoney(incomeDetails.totalMonthlyIncome)}
+                    <span className="text-gray-200">
+                      {formatMoney(incomeDetails.totalMonthlyIncome)}
+                    </span>
                   </p>
                   <p className="">
                     Monthly Tax Deduction :{"   "}
-                    {formatMoney(incomeDetails.monthlyTaxDeduction)}
+                    <span className="text-gray-200">
+                      {formatMoney(incomeDetails.monthlyTaxDeduction)}
+                    </span>
                   </p>
                   <p className="">
                     In-Hand Monthly Salary :{"   "}
-                    {formatMoney(incomeDetails.inHandMonthlySalary)}
+                    <span className="text-gray-200">
+                      {formatMoney(incomeDetails.inHandMonthlySalary)}
+                    </span>
                   </p>
                 </div>
               </div>
