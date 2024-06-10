@@ -1,113 +1,164 @@
+"use client";
 import Image from "next/image";
+import { useState } from "react";
 
 export default function Home() {
+  const [annualIncome, setAnnualIncome] = useState<number>(1500000);
+  const [salaries, setSalaries] = useState<number[]>([
+    1700000, 1900000, 2100000, 2300000, 2400000, 2500000, 2600000,
+  ]);
+  const [previousSalary, setPreviousSalary] = useState<number>(1500000);
+  const [incomeDetails, setIncomeDetails] = useState({
+    totalMonthlyIncome: 0.0,
+    monthlyTaxDeduction: 0.0,
+    inHandMonthlySalary: 0.0,
+  });
+  const hike = (newSalary: number, previousSalary: number): number => {
+    return previousSalary > 0
+      ? ((newSalary - previousSalary) / previousSalary) * 100
+      : 0;
+  };
+
+  const calculateIncomeDetails = (annualIncome: number) => {
+    const standardDeduction = 50000;
+    const cessRate = 0.04;
+
+    // Deduct the standard deduction from the annual income
+    const taxableIncome = annualIncome - standardDeduction;
+
+    // Define tax slabs and rates according to the new tax regime
+    const taxSlabs = [
+      { upTo: 250000, rate: 0 }, // Income up to 2.5 lakh: 0%
+      { upTo: 500000, rate: 0.05 }, // Income from 2.5 lakh to 5 lakh: 5%
+      { upTo: 750000, rate: 0.1 }, // Income from 5 lakh to 7.5 lakh: 10%
+      { upTo: 1000000, rate: 0.15 }, // Income from 7.5 lakh to 10 lakh: 15%
+      { upTo: 1250000, rate: 0.2 }, // Income from 10 lakh to 12.5 lakh: 20%
+      { upTo: 1500000, rate: 0.25 }, // Income from 12.5 lakh to 15 lakh: 25%
+      { upTo: Infinity, rate: 0.3 }, // Income above 15 lakh: 30%
+    ];
+
+    // Function to compute total tax based on slabs
+    const computeTax = (income: number) => {
+      let tax = 0;
+      let remainingIncome = income;
+      let previousLimit = 0;
+
+      for (let i = 0; i < taxSlabs.length; i++) {
+        const slab = taxSlabs[i];
+        if (remainingIncome > slab.upTo - previousLimit) {
+          tax += (slab.upTo - previousLimit) * slab.rate;
+          remainingIncome -= slab.upTo - previousLimit;
+          previousLimit = slab.upTo;
+        } else {
+          tax += remainingIncome * slab.rate;
+          break;
+        }
+      }
+
+      return tax;
+    };
+
+    // Compute the total tax
+    const totalTax = computeTax(taxableIncome);
+
+    // Compute the cess
+    const cess = totalTax * cessRate;
+
+    // Total tax including cess
+    const totalTaxWithCess = totalTax + cess;
+
+    // Compute monthly details
+    const totalMonthlyIncome = annualIncome / 12;
+    const monthlyTaxDeduction = totalTaxWithCess / 12;
+    const inHandMonthlySalary = totalMonthlyIncome - monthlyTaxDeduction;
+
+    return {
+      totalMonthlyIncome: totalMonthlyIncome,
+      monthlyTaxDeduction: monthlyTaxDeduction,
+      inHandMonthlySalary: inHandMonthlySalary,
+    };
+  };
+
+  const handleIncomeChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    idx: number = 0
+  ) => {
+    const newSalary = parseFloat(e.target.value);
+    setSalaries((prevSalaries) => {
+      const updatedSalaries = [...prevSalaries];
+      updatedSalaries[idx] = newSalary;
+      return updatedSalaries;
+    });
+    setAnnualIncome(newSalary);
+    setIncomeDetails(calculateIncomeDetails(newSalary));
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+      <div className=" flex flex-col gap-2 text-left">
+        <h2 className="text-2xl font-bold mb-4">Income Tax Calculator</h2>
+        <label htmlFor="previousSalary">Previous Salary</label>
+        <input
+          id="previousSalary"
+          type="number"
+          value={previousSalary}
+          onChange={(e) => setPreviousSalary(parseFloat(e.target.value))}
+          className="border border-gray-300 p-2 mb-4 w-full text-gray-600"
+          placeholder="Enter your annual income"
         />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
+        <div className="mb-32 grid  lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left gap-4">
+          {salaries?.map((salary, index) => {
+            const incomeDetails = calculateIncomeDetails(salary);
+            return (
+              <div
+                key={index}
+                className="p-4 shadow-sm border border-dotted rounded-lg flex flex-col gap-3"
+              >
+                <label htmlFor="newSalary">
+                  New Salary{" "}
+                  <strong> {hike(salary, previousSalary).toFixed(2)}%</strong>
+                </label>
+                <input
+                  id="newSalary"
+                  type="number"
+                  value={salary}
+                  onChange={(e) => handleIncomeChange(e, index)}
+                  className="border border-gray-300 p-2 mb-4 w-full text-gray-600"
+                  placeholder="Enter your annual income"
+                />
+                <div className="text-left flex flex-col gap-2">
+                  <p className="">
+                    Total Monthly Income :{"   "}
+                    {formatMoney(incomeDetails.totalMonthlyIncome)}
+                  </p>
+                  <p className="">
+                    Monthly Tax Deduction :{"   "}
+                    {formatMoney(incomeDetails.monthlyTaxDeduction)}
+                  </p>
+                  <p className="">
+                    In-Hand Monthly Salary :{"   "}
+                    {formatMoney(incomeDetails.inHandMonthlySalary)}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </main>
   );
+}
+
+/**
+ * Function to format money using the Internationalization API
+ * @param {number} amount - The amount of money to format
+ * @param {string} locale - The locale to use for formatting (e.g., 'en-IN' for India)
+ * @param {string} currency - The currency code (e.g., 'INR' for Indian Rupee)
+ * @returns {string} - The formatted currency string
+ */
+function formatMoney(amount: number = 0, locale = "en-IN", currency = "INR") {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currency,
+  }).format(amount);
 }
