@@ -446,7 +446,7 @@ export default function Home() {
                           className="absolute top-2 right-2 bg-red-600 text-white w-6 h-6 rounded-full hover:bg-red-500 flex items-center justify-center text-sm"
                           title="Remove this variation"
                         >
-                          ×
+                          <X className="w-4 h-4" />
                         </button>
                       )}
                       <label htmlFor={`newSalary-${index}`} className="text-gray-400 text-sm">
@@ -465,43 +465,43 @@ export default function Home() {
                         placeholder="Enter your annual CTC"
                       />
                       <div className="text-left flex flex-col gap-2">
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs text-gray-500">
                           CTC (Annual): <span className="text-gray-300">{formatMoney(salary)}</span>
                         </p>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-xs text-gray-500">
                           Employer PF: <span className="text-gray-300">{formatMoney(incomeDetails.monthlyEmployerPf)}</span>
                         </p>
                         <hr className="my-1 border-zinc-800" />
-                        <p className="text-gray-400">
+                        <p className="text-xs text-gray-500">
                           Gross Monthly Income :{"   "}
                           <span className="text-white font-semibold">
                             {formatMoney(incomeDetails.grossMonthlyIncome)}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-xs text-gray-500">
                           Monthly Tax Deduction :{"   "}
                           <span className="text-red-400 font-semibold">
                             -{formatMoney(incomeDetails.monthlyTaxDeduction)}
                           </span>
                         </p>
-                        <p className="text-gray-400">
+                        <p className="text-xs text-gray-500">
                           Monthly PF (Employee) :{"   "}
                           <span className="text-orange-400 font-semibold">
                             -{formatMoney(incomeDetails.monthlyPfDeduction)}
                           </span>
                         </p>
-                        <p className="font-semibold text-gray-400">
-                          In-Hand Monthly Salary :{"   "}
-                          <span className="text-green-400 text-lg">
+                        <p className="text-xs text-gray-500">
+                          In-Hand/Monthly :{"   "}
+                          <span className="text-green-400 text-lg font-semibold">
                             {formatMoney(incomeDetails.inHandMonthlySalary)}
                           </span>
                         </p>
                         <hr className="my-1 border-zinc-800" />
-                        <p className="font-semibold text-gray-400 flex items-center gap-1.5">
-                          <ArrowUpRight className="w-4 h-4 text-cyan-400" />
-                          Extra Cash (vs Previous) :{"   "}
-                          <span className="text-cyan-400 text-lg">
-                            +{formatMoney(incomeDetails.inHandMonthlySalary - calculateIncomeDetails(previousSalary, pfType, pfPercentage, pfFixedAmount).inHandMonthlySalary)}
+                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                          {/* <ArrowUpRight className="w-4 h-4 text-cyan-400" /> */}
+                          Extra Cash :{"   "}
+                          <span className="text-cyan-400 text-lg font-semibold">
+                            {formatMoney(incomeDetails.inHandMonthlySalary - calculateIncomeDetails(previousSalary, pfType, pfPercentage, pfFixedAmount).inHandMonthlySalary)}
                           </span>
                         </p>
                       </div>
@@ -531,7 +531,7 @@ export default function Home() {
                                   className="ml-2 bg-red-600 text-white w-6 h-6 rounded-full hover:bg-red-500 flex items-center justify-center text-xs"
                                   title="Remove this variation"
                                 >
-                                  ×
+                                  <X className="w-4 h-4" />
                                 </button>
                               )}
                             </div>
@@ -719,7 +719,7 @@ export default function Home() {
                           className="px-2 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-xs"
                           title="Delete version"
                         >
-                          ×
+                          <X className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
