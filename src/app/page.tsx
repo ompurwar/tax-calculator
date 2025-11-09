@@ -21,6 +21,8 @@ export default function Home() {
   const [versions, setVersions] = useState<{ version: number; timestamp: number }[]>([]);
   const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [showTooltip, setShowTooltip] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
 
   // Load configurations from localStorage on mount
   useEffect(() => {
@@ -279,57 +281,99 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between md:p-24 py-24">
-      <div className=" flex flex-col gap-2 text-left w-full max-w-7xl">
-        <h2 className="text-2xl font-bold mb-4">Income Tax Calculator</h2>
-        
-        {/* Regime Notice */}
-        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
-          <p className="font-semibold">📌 Currently supporting New Tax Regime only</p>
+    <main className="flex min-h-screen flex-col lg:flex-row items-start justify-start px-6 py-8 md:p-24 gap-6 bg-black">
+      {/* Left Sidebar - Tax Slabs (Desktop Only) */}
+      {!loading && taxSlabData && (
+        <aside className="hidden lg:block lg:w-80 bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-24">
+          <h3 className="text-lg font-bold mb-4 text-white">Tax Slabs ({selectedYear})</h3>
+          <div className="space-y-3">
+            {taxSlabData.slabs.map((slab, index) => {
+              const from = index === 0 ? 0 : taxSlabData.slabs[index - 1].upTo;
+              return (
+                <div key={index} className="border-l-4 border-blue-500 pl-3 py-2 bg-zinc-800/50 rounded">
+                  <p className="text-sm font-semibold text-gray-200">
+                    {slab.upTo === null || slab.upTo === Infinity 
+                      ? `Above ₹${(from / 100000).toFixed(1)}L`
+                      : `₹${(from / 100000).toFixed(1)}L - ₹${(slab.upTo / 100000).toFixed(1)}L`}
+                  </p>
+                  <p className="text-xs text-gray-400">Rate: {slab.rate}%</p>
+                </div>
+              );
+            })}
+            <div className="mt-4 pt-4 border-t border-zinc-700 space-y-2">
+              <p className="text-xs text-gray-400">
+                <span className="font-semibold">Standard Deduction:</span> ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k
+              </p>
+              <p className="text-xs text-gray-400">
+                <span className="font-semibold">Cess:</span> {taxSlabData.cessRate}%
+              </p>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* Main Content */}
+      <div className="flex flex-col gap-2 text-left w-full lg:flex-1">
+        {/* Header with Info Icon */}
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-2xl font-bold text-white">Income Tax Calculator</h2>
+          <div className="relative">
+            <button
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold hover:bg-blue-500 transition-colors"
+              aria-label="Information"
+            >
+              i
+            </button>
+            {showTooltip && (
+              <div className="absolute left-8 top-0 bg-zinc-800 border border-zinc-700 text-white text-xs rounded-lg px-3 py-2 w-64 shadow-xl z-10">
+                <p className="font-semibold mb-1">📌 New Tax Regime Only</p>
+                <p className="text-gray-300">Currently supporting the new tax regime for all calculations.</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Version Management */}
-        {versions.length > 0 && (
-          <div className="mb-4 p-4 bg-gray-100 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-700">Saved Configurations</h3>
-              <span className="text-sm text-gray-500">
-                Current: {currentVersion ? `Version ${currentVersion}` : 'Unsaved'}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {versions.map(v => (
-                <div key={v.version} className="flex items-center gap-1">
-                  <button
-                    onClick={() => loadVersion(v.version)}
-                    className={`px-3 py-2 rounded border text-sm ${
-                      currentVersion === v.version
-                        ? 'bg-blue-500 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    V{v.version}
-                    <br />
-                    <span className="text-xs opacity-75">
-                      {new Date(v.timestamp).toLocaleDateString()}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => deleteVersion(v.version)}
-                    className="px-2 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-xs"
-                    title="Delete version"
-                  >
-                    ×
-                  </button>
+        {/* Configuration Summary */}
+        {!loading && taxSlabData && (
+          <div className="mb-4 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-300 flex-1">
+                <div>
+                  <span className="font-semibold text-gray-400">Assessment Year:</span> {selectedYear}
                 </div>
-              ))}
+                <div>
+                  <span className="font-semibold text-gray-400">Previous CTC:</span> ₹{(previousSalary / 100000).toFixed(2)}L
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-400">PF Type:</span> {pfType === 'percentage' ? 'Percentage' : 'Fixed'}
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-400">PF Value:</span> {pfType === 'percentage' ? `${pfPercentage}%` : `₹${pfFixedAmount}/month`}
+                </div>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex-shrink-0 px-3 py-1.5 bg-white text-black text-sm rounded-md hover:bg-gray-200 transition-colors hidden md:flex items-center gap-1 font-medium"
+                title="Edit Configuration"
+              >
+                ✏️ Edit
+              </button>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="flex-shrink-0 md:hidden w-8 h-8 bg-white text-black rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+                title="Edit Configuration"
+              >
+                ✏️
+              </button>
             </div>
           </div>
         )}
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-900/20 border border-red-800 text-red-400 px-4 py-3 rounded mb-4">
             <p>{error}</p>
           </div>
         )}
@@ -337,94 +381,248 @@ export default function Home() {
         {/* Loading State */}
         {loading && (
           <div className="text-center py-4">
-            <p className="text-gray-500">Loading tax slabs...</p>
+            <p className="text-gray-400">Loading tax slabs...</p>
           </div>
         )}
 
         {/* Expected Salary Variations */}
         {!loading && taxSlabData && (
           <>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Expected Salary Variations (Max 5)</h3>
-              {salaries.length < 5 && (
-                <button
-                  onClick={addSalaryVariation}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-                >
-                  + Add Variation
-                </button>
-              )}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+              <h3 className="text-lg font-semibold text-white">Expected Salary Variations (Max 5)</h3>
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('card')}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      viewMode === 'card'
+                        ? 'bg-white text-black'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    📊 Cards
+                  </button>
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      viewMode === 'table'
+                        ? 'bg-white text-black'
+                        : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    📋 Table
+                  </button>
+                </div>
+                {salaries.length < 5 && (
+                  <button
+                    onClick={addSalaryVariation}
+                    className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
+                  >
+                    + Add Variation
+                  </button>
+                )}
+              </div>
             </div>
             
-            <div className="mb-32 grid lg:mb-0 lg:w-full lg:grid-cols-4 lg:text-left gap-4">
-              {salaries?.map((salary, index) => {
-                const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
-                return (
-                  <div
-                    key={index}
-                    className="p-4 text-gray-500 shadow-sm border-2 border-dotted rounded-lg flex flex-col gap-3 relative"
-                  >
-                    {salaries.length > 1 && (
-                      <button
-                        onClick={() => removeSalaryVariation(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white w-6 h-6 rounded-full hover:bg-red-600 flex items-center justify-center text-sm"
-                        title="Remove this variation"
-                      >
-                        ×
-                      </button>
-                    )}
-                    <label htmlFor={`newSalary-${index}`}>
-                      New CTC{" "}
-                      <strong className="text-gray-200">
-                        {" "}
-                        {hike(salary, previousSalary).toFixed(2)}% Hike
-                      </strong>
-                    </label>
-                    <input
-                      id={`newSalary-${index}`}
-                      type="number"
-                      value={salary}
-                      onChange={(e) => handleIncomeChange(e, index)}
-                      className="border border-gray-300 p-2 mb-4 w-full text-gray-600 rounded-md"
-                      placeholder="Enter your annual CTC"
-                    />
-                    <div className="text-left flex flex-col gap-2">
-                      <p className="text-sm text-gray-400">
-                        CTC (Annual): {formatMoney(salary)}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        Employer PF: {formatMoney(incomeDetails.monthlyEmployerPf)}
-                      </p>
-                      <hr className="my-1" />
-                      <p className="">
-                        Gross Monthly Income :{"   "}
-                        <span className="text-gray-200">
-                          {formatMoney(incomeDetails.grossMonthlyIncome)}
-                        </span>
-                      </p>
-                      <p className="">
-                        Monthly Tax Deduction :{"   "}
-                        <span className="text-gray-200">
-                          {formatMoney(incomeDetails.monthlyTaxDeduction)}
-                        </span>
-                      </p>
-                      <p className="">
-                        Monthly PF (Employee) :{"   "}
-                        <span className="text-gray-200">
-                          {formatMoney(incomeDetails.monthlyPfDeduction)}
-                        </span>
-                      </p>
-                      <p className="font-semibold">
-                        In-Hand Monthly Salary :{"   "}
-                        <span className="text-gray-200">
-                          {formatMoney(incomeDetails.inHandMonthlySalary)}
-                        </span>
-                      </p>
+            {/* Card View */}
+            {viewMode === 'card' && (
+              <div className="mb-32 grid lg:mb-0 lg:w-full lg:grid-cols-3 xl:grid-cols-4 lg:text-left gap-4">
+                {salaries?.map((salary, index) => {
+                  const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                  return (
+                    <div
+                      key={index}
+                      className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg flex flex-col gap-3 relative hover:border-zinc-700 transition-colors"
+                    >
+                      {salaries.length > 1 && (
+                        <button
+                          onClick={() => removeSalaryVariation(index)}
+                          className="absolute top-2 right-2 bg-red-600 text-white w-6 h-6 rounded-full hover:bg-red-500 flex items-center justify-center text-sm"
+                          title="Remove this variation"
+                        >
+                          ×
+                        </button>
+                      )}
+                      <label htmlFor={`newSalary-${index}`} className="text-gray-400 text-sm">
+                        New CTC{" "}
+                        <strong className="text-green-400">
+                          {" "}
+                          +{hike(salary, previousSalary).toFixed(2)}% Hike
+                        </strong>
+                      </label>
+                      <input
+                        id={`newSalary-${index}`}
+                        type="number"
+                        value={salary}
+                        onChange={(e) => handleIncomeChange(e, index)}
+                        className="border border-zinc-700 bg-zinc-800 p-2 mb-4 w-full text-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter your annual CTC"
+                      />
+                      <div className="text-left flex flex-col gap-2">
+                        <p className="text-sm text-gray-400">
+                          CTC (Annual): <span className="text-gray-300">{formatMoney(salary)}</span>
+                        </p>
+                        <p className="text-sm text-gray-400">
+                          Employer PF: <span className="text-gray-300">{formatMoney(incomeDetails.monthlyEmployerPf)}</span>
+                        </p>
+                        <hr className="my-1 border-zinc-800" />
+                        <p className="text-gray-400">
+                          Gross Monthly Income :{"   "}
+                          <span className="text-white font-semibold">
+                            {formatMoney(incomeDetails.grossMonthlyIncome)}
+                          </span>
+                        </p>
+                        <p className="text-gray-400">
+                          Monthly Tax Deduction :{"   "}
+                          <span className="text-red-400 font-semibold">
+                            -{formatMoney(incomeDetails.monthlyTaxDeduction)}
+                          </span>
+                        </p>
+                        <p className="text-gray-400">
+                          Monthly PF (Employee) :{"   "}
+                          <span className="text-orange-400 font-semibold">
+                            -{formatMoney(incomeDetails.monthlyPfDeduction)}
+                          </span>
+                        </p>
+                        <p className="font-semibold text-gray-400">
+                          In-Hand Monthly Salary :{"   "}
+                          <span className="text-green-400 text-lg">
+                            {formatMoney(incomeDetails.inHandMonthlySalary)}
+                          </span>
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Table View */}
+            {viewMode === 'table' && (
+              <div className="mb-32 lg:mb-0 -mx-6 md:mx-0">
+                <div className="overflow-auto border border-zinc-800 rounded-lg px-4 sm:px-6">
+                  <table className="w-full border-collapse bg-zinc-900">
+                    <thead>
+                      <tr className="border-b border-zinc-800">
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30 min-w-[180px]">
+                          Metric
+                        </th>
+                        {salaries.map((salary, index) => (
+                          <th key={index} className="px-6 py-3 text-left text-sm font-semibold text-white min-w-[180px]">
+                            <div className="flex items-center justify-between">
+                              <span>Variation {index + 1}</span>
+                              {salaries.length > 1 && (
+                                <button
+                                  onClick={() => removeSalaryVariation(index)}
+                                  className="ml-2 bg-red-600 text-white w-6 h-6 rounded-full hover:bg-red-500 flex items-center justify-center text-xs"
+                                  title="Remove this variation"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
+                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                          New CTC (Annual)
+                        </td>
+                        {salaries.map((salary, index) => (
+                          <td key={index} className="px-6 py-4">
+                            <input
+                              type="number"
+                              value={salary}
+                              onChange={(e) => handleIncomeChange(e, index)}
+                              className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Enter CTC"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                      <tr className="bg-yellow-900/40 hover:bg-yellow-900/60 border-b border-zinc-800">
+                        <td className="px-6 py-4 text-sm font-semibold text-white border-r-2 border-zinc-800 bg-yellow-900 sticky left-0 z-30">
+                          📈 Hike (%)
+                        </td>
+                        {salaries.map((salary, index) => (
+                          <td key={index} className="px-6 py-4 text-green-400 font-bold text-lg">
+                            +{hike(salary, previousSalary).toFixed(1)}%
+                          </td>
+                        ))}
+                      </tr>
+                      <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
+                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                          Employer PF (Monthly)
+                        </td>
+                        {salaries.map((salary, index) => {
+                          const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          return (
+                            <td key={index} className="px-6 py-4 text-sm text-gray-400">
+                              {formatMoney(incomeDetails.monthlyEmployerPf)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      <tr className="bg-blue-900/40 hover:bg-blue-900/60 border-b border-zinc-800">
+                        <td className="px-6 py-4 text-sm font-semibold text-white border-r-2 border-zinc-800 bg-blue-900 sticky left-0 z-30">
+                          💵 Gross Monthly
+                        </td>
+                        {salaries.map((salary, index) => {
+                          const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          return (
+                            <td key={index} className="px-6 py-4 text-sm font-semibold text-white">
+                              {formatMoney(incomeDetails.grossMonthlyIncome)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
+                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                          Tax (Monthly)
+                        </td>
+                        {salaries.map((salary, index) => {
+                          const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          return (
+                            <td key={index} className="px-6 py-4 text-sm text-red-400">
+                              -{formatMoney(incomeDetails.monthlyTaxDeduction)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
+                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                          PF (Employee)
+                        </td>
+                        {salaries.map((salary, index) => {
+                          const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          return (
+                            <td key={index} className="px-6 py-4 text-sm text-orange-400">
+                              -{formatMoney(incomeDetails.monthlyPfDeduction)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      <tr className="bg-green-900/40 hover:bg-green-900/60">
+                        <td className="px-6 py-4 text-sm font-bold text-white border-r-2 border-zinc-800 bg-green-900 sticky left-0 z-30">
+                          💰 In-Hand Monthly
+                        </td>
+                        {salaries.map((salary, index) => {
+                          const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          return (
+                            <td key={index} className="px-6 py-4 text-base font-bold text-green-400">
+                              {formatMoney(incomeDetails.inHandMonthlySalary)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -432,7 +630,7 @@ export default function Home() {
       {/* Floating Edit Button */}
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-8 right-8 bg-blue-600 text-white w-16 h-16 rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110 flex items-center justify-center text-2xl"
+        className="fixed bottom-8 right-8 bg-white text-black w-16 h-16 rounded-full shadow-2xl hover:bg-gray-200 transition-all hover:scale-110 flex items-center justify-center text-2xl border border-zinc-800"
         title="Edit Configuration"
       >
         ⚙️
@@ -440,29 +638,64 @@ export default function Home() {
 
       {/* Configuration Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-800">Configuration Settings</h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Configuration Settings</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl w-8 h-8 flex items-center justify-center"
+                className="text-gray-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center"
               >
                 ×
               </button>
             </div>
             
             <div className="p-6 space-y-4">
+              {/* Version Management */}
+              {versions.length > 0 && (
+                <div className="p-4 bg-zinc-800/50 border border-zinc-700 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-white">Saved Configurations</h3>
+                    <span className="text-sm text-gray-400">
+                      Current: {currentVersion ? `Version ${currentVersion}` : 'Unsaved'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {versions.map(v => (
+                      <div key={v.version} className="flex items-center gap-1">
+                        <button
+                          onClick={() => loadVersion(v.version)}
+                          className={`px-3 py-2 rounded border text-sm ${
+                            currentVersion === v.version
+                              ? 'bg-white text-black border-white'
+                              : 'bg-zinc-800 text-gray-300 border-zinc-700 hover:bg-zinc-700'
+                          }`}
+                        >
+                          V{v.version}
+                        </button>
+                        <button
+                          onClick={() => deleteVersion(v.version)}
+                          className="px-2 py-2 bg-red-600 text-white rounded hover:bg-red-500 text-xs"
+                          title="Delete version"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Assessment Year Selector */}
               <div>
-                <label htmlFor="assessmentYear" className="block mb-2 font-medium text-gray-700">
+                <label htmlFor="assessmentYear" className="block mb-2 font-medium text-gray-300">
                   Assessment Year
                 </label>
                 <select
                   id="assessmentYear"
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="border border-gray-300 p-2 w-full text-gray-600 rounded-md"
+                  className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md focus:ring-2 focus:ring-blue-500"
                   disabled={loading || assessmentYears.length === 0}
                 >
                   {assessmentYears.map((year) => (
@@ -475,7 +708,7 @@ export default function Home() {
 
               {/* Previous CTC */}
               <div>
-                <label htmlFor="previousSalary" className="block mb-2 font-medium text-gray-700">
+                <label htmlFor="previousSalary" className="block mb-2 font-medium text-gray-300">
                   Previous CTC (Annual)
                 </label>
                 <input
@@ -483,21 +716,21 @@ export default function Home() {
                   type="number"
                   value={previousSalary}
                   onChange={(e) => setPreviousSalary(parseFloat(e.target.value))}
-                  className="border border-gray-300 p-2 w-full text-gray-600 rounded-md"
+                  className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter your previous annual CTC"
                 />
               </div>
               
               {/* PF Type Selector */}
               <div>
-                <label htmlFor="pfType" className="block mb-2 font-medium text-gray-700">
+                <label htmlFor="pfType" className="block mb-2 font-medium text-gray-300">
                   PF Contribution Type
                 </label>
                 <select
                   id="pfType"
                   value={pfType}
                   onChange={(e) => setPfType(e.target.value as 'percentage' | 'fixed')}
-                  className="border border-gray-300 p-2 w-full text-gray-600 rounded-md"
+                  className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="percentage">Percentage of Salary</option>
                   <option value="fixed">Fixed Monthly Amount</option>
@@ -507,7 +740,7 @@ export default function Home() {
               {/* PF Value Input */}
               {pfType === 'percentage' ? (
                 <div>
-                  <label htmlFor="pfPercentage" className="block mb-2 font-medium text-gray-700">
+                  <label htmlFor="pfPercentage" className="block mb-2 font-medium text-gray-300">
                     PF Contribution (%)
                   </label>
                   <input
@@ -515,7 +748,7 @@ export default function Home() {
                     type="number"
                     value={pfPercentage}
                     onChange={(e) => setPfPercentage(parseFloat(e.target.value))}
-                    className="border border-gray-300 p-2 w-full text-gray-600 rounded-md"
+                    className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter PF percentage (e.g., 12)"
                     min="0"
                     max="100"
@@ -524,7 +757,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div>
-                  <label htmlFor="pfFixedAmount" className="block mb-2 font-medium text-gray-700">
+                  <label htmlFor="pfFixedAmount" className="block mb-2 font-medium text-gray-300">
                     Monthly PF Amount (₹)
                   </label>
                   <input
@@ -532,7 +765,7 @@ export default function Home() {
                     type="number"
                     value={pfFixedAmount}
                     onChange={(e) => setPfFixedAmount(parseFloat(e.target.value))}
-                    className="border border-gray-300 p-2 w-full text-gray-600 rounded-md"
+                    className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter monthly PF amount (e.g., 1800)"
                     min="0"
                     step="100"
@@ -541,16 +774,16 @@ export default function Home() {
               )}
             </div>
 
-            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex gap-3 border-t">
+            <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 px-6 py-4 flex gap-3">
               <button
                 onClick={saveConfiguration}
-                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-green-700 transition-colors"
+                className="flex-1 bg-white text-black px-6 py-3 rounded-md font-semibold hover:bg-gray-200 transition-colors"
               >
                 💾 Save Configuration
               </button>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-md font-semibold hover:bg-gray-300 transition-colors"
+                className="px-6 py-3 bg-zinc-800 text-white border border-zinc-700 rounded-md font-semibold hover:bg-zinc-700 transition-colors"
               >
                 Close
               </button>
