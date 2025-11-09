@@ -323,7 +323,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col lg:flex-row items-start justify-start px-6 py-8 md:p-12 gap-6 bg-black">
       {/* Left Sidebar - Tax Slabs (Desktop Only) */}
       {!loading && taxSlabData && (
-        <aside className="hidden lg:block lg:w-70 bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-10">
+        <aside className="hidden lg:block lg:w-75 bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-10">
           <h3 className="text-lg font-bold mb-4 text-white">Tax Slabs ({selectedYear})</h3>
           <div className="space-y-3">
             {taxSlabData.slabs.map((slab, index) => {
