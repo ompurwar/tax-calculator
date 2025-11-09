@@ -15,13 +15,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Validate regime type
+    if (regime !== 'new' && regime !== 'old') {
+      return NextResponse.json(
+        { error: 'Invalid regime. Must be "new" or "old"' },
+        { status: 400 }
+      );
+    }
+
     const client = await clientPromise;
     const db = client.db('tax-calculator');
     const collection = db.collection<TaxSlabDocument>('taxSlabs');
 
     const taxSlab = await collection.findOne({
       assessmentYear,
-      regime,
+      regime: regime as 'new' | 'old',
     });
 
     if (!taxSlab) {
