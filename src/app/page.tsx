@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { TrendingUp, Wallet, Receipt, Coins, DollarSign, PiggyBank, ArrowUpRight, Settings, Info, X, Plus, BarChart3, Table as TableIcon, Check, AlertCircle, ChevronDown, ChevronUp, Minus, Trash2 } from "lucide-react";
+import { TrendingUp, Wallet, Receipt, Coins, DollarSign, PiggyBank, ArrowUpRight, Settings, Info, X, Plus, BarChart3, Table as TableIcon, Check, AlertCircle, ChevronDown, ChevronUp, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { TaxSlabDocument, AssessmentYear } from "@/types/tax";
 import { CTCStorage, CTCConfiguration } from "@/lib/storage";
 
@@ -26,6 +26,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showTaxSlabs, setShowTaxSlabs] = useState<boolean>(false);
+  const [selectedVariationIndex, setSelectedVariationIndex] = useState<number>(0);
 
   // Toast notification function
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -319,34 +320,153 @@ export default function Home() {
     });
   };
 
+  // Calculate tax breakdown by slab for a specific salary
+  const calculateTaxBreakdown = (annualIncome: number, pfType: 'percentage' | 'fixed', pfPercent: number, pfFixed: number) => {
+    if (!taxSlabData) return { slabDetails: [], totalTax: 0, cess: 0 };
+
+    const { standardDeduction, cessRate, slabs } = taxSlabData;
+
+    // Calculate actual gross annual (after employer PF)
+    let monthlyEmployerPf = 0;
+    let actualGrossAnnual = annualIncome;
+    
+    if (pfType === 'percentage') {
+      monthlyEmployerPf = (annualIncome * pfPercent) / 100 / 12;
+      actualGrossAnnual = annualIncome - (monthlyEmployerPf * 12);
+    } else {
+      monthlyEmployerPf = pfFixed;
+      actualGrossAnnual = annualIncome - (monthlyEmployerPf * 12);
+    }
+
+    const taxableIncome = Math.max(0, actualGrossAnnual - standardDeduction);
+
+    const slabDetails: { range: string; taxableAmount: number; rate: number; tax: number }[] = [];
+    let remainingIncome = taxableIncome;
+    let previousLimit = 0;
+    let totalTax = 0;
+
+    for (let i = 0; i < slabs.length; i++) {
+      const slab = slabs[i];
+      
+      if (remainingIncome <= 0) break;
+
+      if (slab.upTo === null || slab.upTo === Infinity) {
+        const taxInSlab = remainingIncome * slab.rate;
+        slabDetails.push({
+          range: `Above ₹${(previousLimit / 100000).toFixed(1)}L`,
+          taxableAmount: remainingIncome,
+          rate: slab.rate * 100,
+          tax: taxInSlab,
+        });
+        totalTax += taxInSlab;
+        break;
+      }
+
+      const slabRange = slab.upTo - previousLimit;
+      
+      if (remainingIncome > slabRange) {
+        const taxInSlab = slabRange * slab.rate;
+        slabDetails.push({
+          range: `₹${(previousLimit / 100000).toFixed(1)}L - ₹${(slab.upTo / 100000).toFixed(1)}L`,
+          taxableAmount: slabRange,
+          rate: slab.rate * 100,
+          tax: taxInSlab,
+        });
+        totalTax += taxInSlab;
+        remainingIncome -= slabRange;
+        previousLimit = slab.upTo;
+      } else {
+        const taxInSlab = remainingIncome * slab.rate;
+        slabDetails.push({
+          range: `₹${(previousLimit / 100000).toFixed(1)}L - ₹${(slab.upTo / 100000).toFixed(1)}L`,
+          taxableAmount: remainingIncome,
+          rate: slab.rate * 100,
+          tax: taxInSlab,
+        });
+        totalTax += taxInSlab;
+        break;
+      }
+    }
+
+    const cess = totalTax * cessRate;
+
+    return { slabDetails, totalTax, cess };
+  };
+
   return (
     <main className="flex min-h-screen flex-col lg:flex-row items-start justify-start px-6 py-8 md:p-12 gap-6 bg-black">
-      {/* Left Sidebar - Tax Slabs (Desktop Only) */}
-      {!loading && taxSlabData && (
-        <aside className="hidden lg:block lg:w-75 bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-10">
-          <h3 className="text-lg font-bold mb-4 text-white">Tax Slabs ({selectedYear})</h3>
+            {/* Left Sidebar - Tax Slabs (Desktop Only) */}
+      {!loading && taxSlabData && salaries.length > 0 && (
+        <aside className="hidden lg:block lg:w-80 bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-10 max-h-[calc(100vh-5rem)] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-white">Tax Breakdown</h3>
+            <span className="text-xs text-gray-400">Variation {selectedVariationIndex + 1}</span>
+          </div>
+
+          {/* Navigation Controls */}
+          <div className="flex items-center gap-2 mb-4">
+            <button
+              onClick={() => setSelectedVariationIndex(Math.max(0, selectedVariationIndex - 1))}
+              disabled={selectedVariationIndex === 0}
+              className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 text-sm text-gray-300"
+            >
+              <ChevronLeft className="w-4 h-4" /> Prev
+            </button>
+            <button
+              onClick={() => setSelectedVariationIndex(Math.min(salaries.length - 1, selectedVariationIndex + 1))}
+              disabled={selectedVariationIndex === salaries.length - 1}
+              className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 text-sm text-gray-300"
+            >
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Current Salary Info */}
+          <div className="mb-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
+            <p className="text-xs text-blue-300 mb-1">CTC (Annual)</p>
+            <p className="text-lg font-bold text-white">{formatMoney(salaries[selectedVariationIndex])}</p>
+          </div>
+
+          {/* Tax Breakdown by Slab */}
           <div className="space-y-3">
-            {taxSlabData.slabs.map((slab, index) => {
-              const from = index === 0 ? 0 : taxSlabData.slabs[index - 1].upTo;
+            <h4 className="text-sm font-semibold text-gray-300 mb-2">Tax Calculation</h4>
+            {(() => {
+              const breakdown = calculateTaxBreakdown(salaries[selectedVariationIndex], pfType, pfPercentage, pfFixedAmount);
               return (
-                <div key={index} className="border-l-4 border-blue-500 pl-3 py-2 bg-zinc-800/50 rounded">
-                  <p className="text-sm font-semibold text-gray-200">
-                    {slab.upTo === null || slab.upTo === Infinity 
-                      ? `Above ₹${(from / 100000).toFixed(1)}L`
-                      : `₹${(from / 100000).toFixed(1)}L - ₹${(slab.upTo / 100000).toFixed(1)}L`}
-                  </p>
-                  <p className="text-xs text-gray-400">Rate: {(slab.rate * 100)}%</p>
-                </div>
+                <>
+                  {breakdown.slabDetails.map((detail, index) => (
+                    <div key={index} className="border-l-4 border-blue-500 pl-3 py-2 bg-zinc-800/50 rounded">
+                      <p className="text-xs font-semibold text-gray-200">{detail.range}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Taxable: {formatMoney(detail.taxableAmount)}
+                      </p>
+                      <p className="text-xs text-gray-400">Rate: {detail.rate}%</p>
+                      <p className="text-xs font-semibold text-red-400 mt-1">
+                        Tax: {formatMoney(detail.tax)}
+                      </p>
+                    </div>
+                  ))}
+                  
+                  <div className="mt-4 pt-4 border-t border-zinc-700 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">Subtotal:</span>
+                      <span className="font-semibold text-white">{formatMoney(breakdown.totalTax)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">Cess ({(taxSlabData.cessRate * 100)}%):</span>
+                      <span className="font-semibold text-white">{formatMoney(breakdown.cess)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm pt-2 border-t border-zinc-700">
+                      <span className="text-gray-300 font-semibold">Total Tax:</span>
+                      <span className="font-bold text-red-400">{formatMoney(breakdown.totalTax + breakdown.cess)}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      Standard Deduction: ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k applied
+                    </div>
+                  </div>
+                </>
               );
-            })}
-            <div className="mt-4 pt-4 border-t border-zinc-700 space-y-2">
-              <p className="text-xs text-gray-400">
-                <span className="font-semibold">Standard Deduction:</span> ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k
-              </p>
-              <p className="text-xs text-gray-400">
-                <span className="font-semibold">Cess:</span> {(taxSlabData.cessRate * 100)}%
-              </p>
-            </div>
+            })()}
           </div>
         </aside>
       )}
@@ -419,7 +539,8 @@ export default function Home() {
               >
                 <div className="flex items-center gap-2">
                   <Receipt className="w-5 h-5 text-blue-400" />
-                  <span className="font-semibold text-white">Tax Slabs ({selectedYear})</span>
+                  <span className="font-semibold text-white">Tax Breakdown</span>
+                  <span className="text-xs text-gray-400">• Variation {selectedVariationIndex + 1}</span>
                 </div>
                 {showTaxSlabs ? (
                   <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -428,29 +549,70 @@ export default function Home() {
                 )}
               </button>
               
-              {showTaxSlabs && (
+              {showTaxSlabs && salaries.length > 0 && (
                 <div className="mt-2 p-4 bg-zinc-900 border border-zinc-800 rounded-lg space-y-3">
-                  {taxSlabData.slabs.map((slab, index) => {
-                    const from = index === 0 ? 0 : taxSlabData.slabs[index - 1].upTo;
-                    return (
-                      <div key={index} className="border-l-4 border-blue-500 pl-3 py-2 bg-zinc-800/50 rounded">
-                        <p className="text-sm font-semibold text-gray-200">
-                          {slab.upTo === null || slab.upTo === Infinity 
-                            ? `Above ₹${(from / 100000).toFixed(1)}L`
-                            : `₹${(from / 100000).toFixed(1)}L - ₹${(slab.upTo / 100000).toFixed(1)}L`}
-                        </p>
-                        <p className="text-xs text-gray-400">Rate: {(slab.rate * 100)}%</p>
-                      </div>
-                    );
-                  })}
-                  <div className="mt-4 pt-4 border-t border-zinc-700 space-y-2">
-                    <p className="text-xs text-gray-400">
-                      <span className="font-semibold">Standard Deduction:</span> ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      <span className="font-semibold">Cess:</span> {(taxSlabData.cessRate * 100)}%
-                    </p>
+                  {/* Navigation Controls */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      onClick={() => setSelectedVariationIndex(Math.max(0, selectedVariationIndex - 1))}
+                      disabled={selectedVariationIndex === 0}
+                      className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 text-sm text-gray-300"
+                    >
+                      <ChevronLeft className="w-4 h-4" /> Prev
+                    </button>
+                    <button
+                      onClick={() => setSelectedVariationIndex(Math.min(salaries.length - 1, selectedVariationIndex + 1))}
+                      disabled={selectedVariationIndex === salaries.length - 1}
+                      className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 text-sm text-gray-300"
+                    >
+                      Next <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
+
+                  {/* Current Salary */}
+                  <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg mb-3">
+                    <p className="text-xs text-blue-300 mb-1">CTC (Annual)</p>
+                    <p className="text-base font-bold text-white">{formatMoney(salaries[selectedVariationIndex])}</p>
+                  </div>
+
+                  {/* Tax Breakdown */}
+                  {(() => {
+                    const breakdown = calculateTaxBreakdown(salaries[selectedVariationIndex], pfType, pfPercentage, pfFixedAmount);
+                    return (
+                      <>
+                        {breakdown.slabDetails.map((detail, index) => (
+                          <div key={index} className="border-l-4 border-blue-500 pl-3 py-2 bg-zinc-800/50 rounded">
+                            <p className="text-xs font-semibold text-gray-200">{detail.range}</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              Taxable: {formatMoney(detail.taxableAmount)}
+                            </p>
+                            <p className="text-xs text-gray-400">Rate: {detail.rate}%</p>
+                            <p className="text-xs font-semibold text-red-400 mt-1">
+                              Tax: {formatMoney(detail.tax)}
+                            </p>
+                          </div>
+                        ))}
+                        
+                        <div className="mt-4 pt-4 border-t border-zinc-700 space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-400">Subtotal:</span>
+                            <span className="font-semibold text-white">{formatMoney(breakdown.totalTax)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-400">Cess ({(taxSlabData.cessRate * 100)}%):</span>
+                            <span className="font-semibold text-white">{formatMoney(breakdown.cess)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm pt-2 border-t border-zinc-700">
+                            <span className="text-gray-300 font-semibold">Total Tax:</span>
+                            <span className="font-bold text-red-400">{formatMoney(breakdown.totalTax + breakdown.cess)}</span>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-2">
+                            Standard Deduction: ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k applied
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -519,10 +681,16 @@ export default function Home() {
               <div className="mb-32 grid lg:mb-0 lg:w-full lg:grid-cols-3 xl:grid-cols-4 lg:text-left gap-4">
                 {salaries?.map((salary, index) => {
                   const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                  const isSelected = index === selectedVariationIndex;
                   return (
                     <div
                       key={index}
-                      className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg flex flex-col gap-3 relative hover:border-zinc-700 transition-colors"
+                      onClick={() => setSelectedVariationIndex(index)}
+                      className={`p-4 bg-zinc-900 border-2 rounded-lg flex flex-col gap-3 relative transition-all cursor-pointer ${
+                        isSelected 
+                          ? 'border-blue-500 shadow-lg shadow-blue-500/20' 
+                          : 'border-zinc-800 hover:border-zinc-700'
+                      }`}
                     >
                       {salaries.length > 1 && (
                         <button
@@ -635,22 +803,34 @@ export default function Home() {
                         <th className="px-6 py-3 text-left text-sm font-semibold text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30 min-w-[180px]">
                           Metric
                         </th>
-                        {salaries.map((salary, index) => (
-                          <th key={index} className="pl-6 pr-2 py-3 text-left text-sm font-semibold text-white min-w-[180px]">
-                            <div className="flex items-center justify-between">
-                              <span>Variation {index + 1}</span>
-                              {salaries.length > 1 && (
-                                <button
-                                  onClick={() => removeSalaryVariation(index)}
-                                  className="ml-2 border-2 border-red-500/50 text-red-400 w-10 h-10 rounded-lg hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center transition-all"
-                                  title="Remove this variation"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </th>
-                        ))}
+                        {salaries.map((salary, index) => {
+                          const isSelected = index === selectedVariationIndex;
+                          return (
+                            <th 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-3 text-left text-sm font-semibold text-white min-w-[180px] cursor-pointer transition-all ${
+                                isSelected ? 'bg-blue-900/30 border-t-4 border-t-blue-500' : 'hover:bg-zinc-800/50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span>Variation {index + 1}</span>
+                                {salaries.length > 1 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      removeSalaryVariation(index);
+                                    }}
+                                    className="ml-2 border-2 border-red-500/50 text-red-400 w-10 h-10 rounded-lg hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center transition-all"
+                                    title="Remove this variation"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </th>
+                          );
+                        })}
                       </tr>
                     </thead>
                     <tbody>
@@ -658,17 +838,26 @@ export default function Home() {
                         <td className="px-6 py-4 text-xs font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
                           New CTC (Annual)
                         </td>
-                        {salaries.map((salary, index) => (
-                          <td key={index} className="pl-6 pr-2 py-4">
-                            <input
-                              type="number"
-                              value={salary}
-                              onChange={(e) => handleIncomeChange(e, index)}
-                              className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Enter CTC"
-                            />
-                          </td>
-                        ))}
+                        {salaries.map((salary, index) => {
+                          const isSelected = index === selectedVariationIndex;
+                          return (
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-4 cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-900/20' : ''
+                              }`}
+                            >
+                              <input
+                                type="number"
+                                value={salary}
+                                onChange={(e) => handleIncomeChange(e, index)}
+                                className="border border-zinc-700 bg-zinc-800 p-2 w-full text-white rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Enter CTC"
+                              />
+                            </td>
+                          );
+                        })}
                       </tr>
                       <tr className="bg-yellow-900/40 hover:bg-yellow-900/60 border-b border-zinc-800">
                         <td className="px-6 py-4 text-xs font-semibold text-white border-r-2 border-zinc-800 bg-yellow-900 sticky left-0 z-30">
@@ -677,11 +866,20 @@ export default function Home() {
                             Hike (%)
                           </div>
                         </td>
-                        {salaries.map((salary, index) => (
-                          <td key={index} className="pl-6 pr-2 py-4 text-green-400 font-bold text-lg">
-                            +{hike(salary, previousSalary).toFixed(1)}%
-                          </td>
-                        ))}
+                        {salaries.map((salary, index) => {
+                          const isSelected = index === selectedVariationIndex;
+                          return (
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-4 text-green-400 font-bold text-lg cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-900/20' : ''
+                              }`}
+                            >
+                              +{hike(salary, previousSalary).toFixed(1)}%
+                            </td>
+                          );
+                        })}
                       </tr>
                       <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
                         <td className="px-6 py-4 text-xs font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
@@ -689,8 +887,15 @@ export default function Home() {
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          const isSelected = index === selectedVariationIndex;
                           return (
-                            <td key={index} className="pl-6 pr-2 py-4 text-sm text-gray-400">
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-4 text-sm text-gray-400 cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-900/20' : ''
+                              }`}
+                            >
                               {formatMoney(incomeDetails.monthlyEmployerPf)}
                             </td>
                           );
@@ -705,8 +910,15 @@ export default function Home() {
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          const isSelected = index === selectedVariationIndex;
                           return (
-                            <td key={index} className="pl-6 pr-2 py-4 text-sm font-semibold text-white">
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-4 text-sm font-semibold text-white cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-900/30' : ''
+                              }`}
+                            >
                               {formatMoney(incomeDetails.grossMonthlyIncome)}
                             </td>
                           );
@@ -718,8 +930,15 @@ export default function Home() {
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          const isSelected = index === selectedVariationIndex;
                           return (
-                            <td key={index} className="pl-6 pr-2 py-4 text-sm text-red-400">
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-4 text-sm text-red-400 cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-900/20' : ''
+                              }`}
+                            >
                               -{formatMoney(incomeDetails.monthlyTaxDeduction)}
                             </td>
                           );
@@ -731,8 +950,15 @@ export default function Home() {
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          const isSelected = index === selectedVariationIndex;
                           return (
-                            <td key={index} className="pl-6 pr-2 py-4 text-sm text-orange-400">
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-4 text-sm text-orange-400 cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-900/20' : ''
+                              }`}
+                            >
                               -{formatMoney(incomeDetails.monthlyPfDeduction)}
                             </td>
                           );
@@ -747,8 +973,15 @@ export default function Home() {
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          const isSelected = index === selectedVariationIndex;
                           return (
-                            <td key={index} className="pl-6 pr-2 py-4 text-base font-bold text-green-400">
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`pl-6 pr-2 py-4 text-base font-bold text-green-400 cursor-pointer transition-colors ${
+                                isSelected ? 'bg-blue-900/30' : ''
+                              }`}
+                            >
                               {formatMoney(incomeDetails.inHandMonthlySalary)}
                             </td>
                           );
@@ -766,8 +999,15 @@ export default function Home() {
                           const previousDetails = calculateIncomeDetails(previousSalary, pfType, pfPercentage, pfFixedAmount);
                           const extraCash = currentDetails.inHandMonthlySalary - previousDetails.inHandMonthlySalary;
                           const isPositive = extraCash > 0;
+                          const isSelected = index === selectedVariationIndex;
                           return (
-                            <td key={index} className={`px-6 py-4 text-base font-bold ${isPositive ? 'text-cyan-400' : 'text-red-400'}`}>
+                            <td 
+                              key={index} 
+                              onClick={() => setSelectedVariationIndex(index)}
+                              className={`px-6 py-4 text-base font-bold cursor-pointer transition-colors ${
+                                isPositive ? 'text-cyan-400' : 'text-red-400'
+                              } ${isSelected ? 'bg-blue-900/30' : ''}`}
+                            >
                               {isPositive ? '+' : ''}{formatMoney(extraCash)}
                             </td>
                           );
