@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { TrendingUp, Wallet, Receipt, Coins, DollarSign, PiggyBank, ArrowUpRight, Settings, Info, X, Plus, BarChart3, Table as TableIcon } from "lucide-react";
+import { TrendingUp, Wallet, Receipt, Coins, DollarSign, PiggyBank, ArrowUpRight, Settings, Info, X, Plus, BarChart3, Table as TableIcon, Check, AlertCircle } from "lucide-react";
 import { TaxSlabDocument, AssessmentYear } from "@/types/tax";
 import { CTCStorage, CTCConfiguration } from "@/lib/storage";
 
@@ -24,6 +24,31 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Toast notification function
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Auto-detect view mode based on screen size
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) { // lg breakpoint
+        setViewMode('table');
+      } else {
+        setViewMode('card');
+      }
+    };
+    
+    // Set initial view mode
+    handleResize();
+    
+    // Listen for window resize
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Load configurations from localStorage on mount
   useEffect(() => {
@@ -31,6 +56,9 @@ export default function Home() {
     const latest = CTCStorage.getLatest();
     if (latest) {
       loadConfiguration(latest);
+    } else {
+      // Open modal for first-time users
+      setIsModalOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -124,33 +152,34 @@ export default function Home() {
       setCurrentVersion(config.version);
       loadVersions(); // Refresh version list
       
-      alert(`Configuration saved as Version ${config.version}`);
+      showToast(`Configuration saved as Version ${config.version}`, 'success');
+      setIsModalOpen(false);
     } catch (err) {
       console.error('Failed to save configuration:', err);
-      alert('Failed to save configuration');
+      showToast('Failed to save configuration', 'error');
     }
   };
 
   // Delete a version
   const deleteVersion = (version: number) => {
-    if (confirm(`Are you sure you want to delete Version ${version}?`)) {
-      try {
-        CTCStorage.deleteVersion(version);
-        loadVersions();
-        
-        // If we deleted the current version, load the latest
-        if (currentVersion === version) {
-          const latest = CTCStorage.getLatest();
-          if (latest) {
-            loadConfiguration(latest);
-          } else {
-            setCurrentVersion(null);
-          }
+    try {
+      CTCStorage.deleteVersion(version);
+      loadVersions();
+      
+      // If we deleted the current version, load the latest
+      if (currentVersion === version) {
+        const latest = CTCStorage.getLatest();
+        if (latest) {
+          loadConfiguration(latest);
+        } else {
+          setCurrentVersion(null);
         }
-      } catch (err) {
-        console.error('Failed to delete version:', err);
-        alert('Failed to delete version');
       }
+      
+      showToast(`Version ${version} deleted`, 'success');
+    } catch (err) {
+      console.error('Failed to delete version:', err);
+      showToast('Failed to delete version', 'error');
     }
   };
   
@@ -451,10 +480,10 @@ export default function Home() {
                       )}
                       <label htmlFor={`newSalary-${index}`} className="text-gray-400 text-sm">
                         New CTC{" "}
-                        <strong className="text-green-400">
-                          {" "}
-                          +{hike(salary, previousSalary).toFixed(2)}% Hike
-                        </strong>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-900/50 border border-green-700 rounded-full text-green-400 font-semibold text-xs">
+                          <TrendingUp className="w-3 h-3" />
+                          +{hike(salary, previousSalary).toFixed(1)}% Hike
+                        </span>
                       </label>
                       <input
                         id={`newSalary-${index}`}
@@ -492,18 +521,19 @@ export default function Home() {
                         </p>
                         <p className="text-xs text-gray-500">
                           In-Hand/Monthly :{"   "}
-                          <span className="text-green-400 text-lg font-semibold">
+                          <span className="text-green-400 text-base font-semibold">
                             {formatMoney(incomeDetails.inHandMonthlySalary)}
                           </span>
                         </p>
                         <hr className="my-1 border-zinc-800" />
-                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                          {/* <ArrowUpRight className="w-4 h-4 text-cyan-400" /> */}
-                          Extra Cash :{"   "}
-                          <span className="text-cyan-400 text-lg font-semibold">
-                            {formatMoney(incomeDetails.inHandMonthlySalary - calculateIncomeDetails(previousSalary, pfType, pfPercentage, pfFixedAmount).inHandMonthlySalary)}
-                          </span>
-                        </p>
+                        <div className="bg-gradient-to-br from-cyan-900/40 to-blue-900/40 border border-cyan-700/50 rounded-lg p-3 mt-2">
+                          <p className="text-xs text-cyan-300/80 mb-1">Extra Cash vs Previous</p>
+                          <p className="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                            <ArrowUpRight className="w-5 h-5" />
+                            +{formatMoney(incomeDetails.inHandMonthlySalary - calculateIncomeDetails(previousSalary, pfType, pfPercentage, pfFixedAmount).inHandMonthlySalary)}
+                          </p>
+                          <p className="text-xs text-cyan-300/60 mt-1">per month</p>
+                        </div>
                       </div>
                     </div>
                   );
@@ -676,6 +706,30 @@ export default function Home() {
       >
         <Settings className="w-6 h-6" />
       </button>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-8 right-8 z-50 animate-in slide-in-from-top-5 fade-in duration-300">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border ${
+            toast.type === 'success' 
+              ? 'bg-green-900 border-green-700 text-green-100' 
+              : 'bg-red-900 border-red-700 text-red-100'
+          }`}>
+            {toast.type === 'success' ? (
+              <Check className="w-5 h-5 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            )}
+            <p className="text-sm font-medium">{toast.message}</p>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 hover:opacity-70 transition-opacity"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Configuration Modal */}
       {isModalOpen && (
