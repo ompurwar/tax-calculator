@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { TrendingUp, Wallet, Receipt, Coins, DollarSign, PiggyBank, ArrowUpRight, Settings, Info, X, Plus, BarChart3, Table as TableIcon, Check, AlertCircle } from "lucide-react";
+import { TrendingUp, Wallet, Receipt, Coins, DollarSign, PiggyBank, ArrowUpRight, Settings, Info, X, Plus, BarChart3, Table as TableIcon, Check, AlertCircle, ChevronDown, ChevronUp, Minus } from "lucide-react";
 import { TaxSlabDocument, AssessmentYear } from "@/types/tax";
 import { CTCStorage, CTCConfiguration } from "@/lib/storage";
 
@@ -25,6 +25,7 @@ export default function Home() {
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showTaxSlabs, setShowTaxSlabs] = useState<boolean>(false);
 
   // Toast notification function
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -310,6 +311,14 @@ export default function Home() {
     }
   };
 
+  const adjustSalary = (idx: number, amount: number) => {
+    setSalaries((prevSalaries) => {
+      const updatedSalaries = [...prevSalaries];
+      updatedSalaries[idx] = Math.max(0, updatedSalaries[idx] + amount);
+      return updatedSalaries;
+    });
+  };
+
   return (
     <main className="flex min-h-screen flex-col lg:flex-row items-start justify-start px-6 py-8 md:p-12 gap-6 bg-black">
       {/* Left Sidebar - Tax Slabs (Desktop Only) */}
@@ -351,10 +360,10 @@ export default function Home() {
             <button
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
-              className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-500 transition-colors"
+              className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-500 transition-colors"
               aria-label="Information"
             >
-              <Info className="w-3.5 h-3.5" />
+              <Info className="w-4 h-4" />
             </button>
             {showTooltip && (
               <div className="absolute left-8 top-0 bg-zinc-800 border border-zinc-700 text-white text-xs rounded-lg px-3 py-2 w-64 shadow-xl z-10">
@@ -367,39 +376,85 @@ export default function Home() {
 
         {/* Configuration Summary */}
         {!loading && taxSlabData && (
-          <div className="mb-4 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-300 flex-1">
-                <div>
-                  <span className="font-semibold text-gray-400">Assessment Year:</span> {selectedYear}
+          <>
+            <div className="mb-4 p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-300 flex-1">
+                  <div>
+                    <span className="font-semibold text-gray-400">Assessment Year:</span> {selectedYear}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-400">Previous CTC:</span> ₹{(previousSalary / 100000).toFixed(2)}L
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-400">PF Type:</span> {pfType === 'percentage' ? 'Percentage' : 'Fixed'}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-gray-400">PF Value:</span> {pfType === 'percentage' ? `${pfPercentage}%` : `₹${pfFixedAmount}/month`}
+                  </div>
                 </div>
-                <div>
-                  <span className="font-semibold text-gray-400">Previous CTC:</span> ₹{(previousSalary / 100000).toFixed(2)}L
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-400">PF Type:</span> {pfType === 'percentage' ? 'Percentage' : 'Fixed'}
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-400">PF Value:</span> {pfType === 'percentage' ? `${pfPercentage}%` : `₹${pfFixedAmount}/month`}
-                </div>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex-shrink-0 px-3 py-1.5 bg-white text-black text-sm rounded-md hover:bg-gray-200 transition-colors hidden md:flex items-center gap-1 font-medium"
+                  title="Edit Configuration"
+                >
+                  <Settings className="w-4 h-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex-shrink-0 md:hidden w-8 h-8 bg-white text-black rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+                  title="Edit Configuration"
+                >
+                  <Settings className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex-shrink-0 px-3 py-1.5 bg-white text-black text-sm rounded-md hover:bg-gray-200 transition-colors hidden md:flex items-center gap-1 font-medium"
-                title="Edit Configuration"
-              >
-                <Settings className="w-4 h-4" />
-                Edit
-              </button>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex-shrink-0 md:hidden w-8 h-8 bg-white text-black rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
-                title="Edit Configuration"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
             </div>
-          </div>
+
+            {/* Mobile Tax Slabs Accordion */}
+            <div className="lg:hidden mb-4">
+              <button
+                onClick={() => setShowTaxSlabs(!showTaxSlabs)}
+                className="w-full p-4 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-blue-400" />
+                  <span className="font-semibold text-white">Tax Slabs ({selectedYear})</span>
+                </div>
+                {showTaxSlabs ? (
+                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                )}
+              </button>
+              
+              {showTaxSlabs && (
+                <div className="mt-2 p-4 bg-zinc-900 border border-zinc-800 rounded-lg space-y-3">
+                  {taxSlabData.slabs.map((slab, index) => {
+                    const from = index === 0 ? 0 : taxSlabData.slabs[index - 1].upTo;
+                    return (
+                      <div key={index} className="border-l-4 border-blue-500 pl-3 py-2 bg-zinc-800/50 rounded">
+                        <p className="text-sm font-semibold text-gray-200">
+                          {slab.upTo === null || slab.upTo === Infinity 
+                            ? `Above ₹${(from / 100000).toFixed(1)}L`
+                            : `₹${(from / 100000).toFixed(1)}L - ₹${(slab.upTo / 100000).toFixed(1)}L`}
+                        </p>
+                        <p className="text-xs text-gray-400">Rate: {(slab.rate * 100)}%</p>
+                      </div>
+                    );
+                  })}
+                  <div className="mt-4 pt-4 border-t border-zinc-700 space-y-2">
+                    <p className="text-xs text-gray-400">
+                      <span className="font-semibold">Standard Deduction:</span> ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      <span className="font-semibold">Cess:</span> {(taxSlabData.cessRate * 100)}%
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* Error Message */}
@@ -472,10 +527,10 @@ export default function Home() {
                       {salaries.length > 1 && (
                         <button
                           onClick={() => removeSalaryVariation(index)}
-                          className="absolute top-2 right-2 bg-red-600 text-white w-6 h-6 rounded-full hover:bg-red-500 flex items-center justify-center text-sm"
+                          className="absolute top-2 right-2 bg-red-600 text-white w-10 h-10 rounded-full hover:bg-red-500 flex items-center justify-center transition-colors"
                           title="Remove this variation"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-5 h-5" />
                         </button>
                       )}
                       <label htmlFor={`newSalary-${index}`} className="text-gray-400 text-sm">
@@ -485,14 +540,43 @@ export default function Home() {
                           +{hike(salary, previousSalary).toFixed(1)}% Hike
                         </span>
                       </label>
-                      <input
-                        id={`newSalary-${index}`}
-                        type="number"
-                        value={salary}
-                        onChange={(e) => handleIncomeChange(e, index)}
-                        className="border border-zinc-700 bg-zinc-800 p-2 mb-4 w-full text-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Enter your annual CTC"
-                      />
+                      <div className="flex gap-2 mb-4">
+                        <input
+                          id={`newSalary-${index}`}
+                          type="number"
+                          value={salary}
+                          onChange={(e) => handleIncomeChange(e, index)}
+                          className="border border-zinc-700 bg-zinc-800 p-2 flex-1 text-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter your annual CTC"
+                        />
+                      </div>
+                      {/* Quick Adjustment Controls */}
+                      <div className="flex gap-2 mb-4 -mt-2">
+                        <button
+                          onClick={() => adjustSalary(index, -100000)}
+                          className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-xs text-gray-300 hover:bg-zinc-700 hover:border-zinc-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Minus className="w-3 h-3" /> 1L
+                        </button>
+                        <button
+                          onClick={() => adjustSalary(index, -50000)}
+                          className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-xs text-gray-300 hover:bg-zinc-700 hover:border-zinc-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Minus className="w-3 h-3" /> 50k
+                        </button>
+                        <button
+                          onClick={() => adjustSalary(index, 50000)}
+                          className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-xs text-gray-300 hover:bg-zinc-700 hover:border-zinc-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" /> 50k
+                        </button>
+                        <button
+                          onClick={() => adjustSalary(index, 100000)}
+                          className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-xs text-gray-300 hover:bg-zinc-700 hover:border-zinc-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" /> 1L
+                        </button>
+                      </div>
                       <div className="text-left flex flex-col gap-2">
                         <p className="text-xs text-gray-500">
                           CTC (Annual): <span className="text-gray-300">{formatMoney(salary)}</span>
@@ -558,10 +642,10 @@ export default function Home() {
                               {salaries.length > 1 && (
                                 <button
                                   onClick={() => removeSalaryVariation(index)}
-                                  className="ml-2 bg-red-600 text-white w-6 h-6 rounded-full hover:bg-red-500 flex items-center justify-center text-xs"
+                                  className="ml-2 bg-red-600 text-white w-10 h-10 rounded-full hover:bg-red-500 flex items-center justify-center transition-colors"
                                   title="Remove this variation"
                                 >
-                                  <X className="w-4 h-4" />
+                                  <X className="w-5 h-5" />
                                 </button>
                               )}
                             </div>
@@ -698,10 +782,10 @@ export default function Home() {
         )}
       </div>
 
-      {/* Floating Edit Button */}
+      {/* Floating Edit Button - Hidden on mobile since we have it in header */}
       <button
         onClick={() => setIsModalOpen(true)}
-        className="fixed bottom-8 right-8 bg-white text-black w-16 h-16 rounded-full shadow-2xl hover:bg-gray-200 transition-all hover:scale-110 flex items-center justify-center border border-zinc-800"
+        className="hidden md:flex fixed bottom-8 right-8 bg-white text-black w-16 h-16 rounded-full shadow-2xl hover:bg-gray-200 transition-all hover:scale-110 items-center justify-center border border-zinc-800 z-40"
         title="Edit Configuration"
       >
         <Settings className="w-6 h-6" />
