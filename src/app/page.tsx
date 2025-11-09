@@ -296,7 +296,7 @@ export default function Home() {
                       ? `Above ₹${(from / 100000).toFixed(1)}L`
                       : `₹${(from / 100000).toFixed(1)}L - ₹${(slab.upTo / 100000).toFixed(1)}L`}
                   </p>
-                  <p className="text-xs text-gray-400">Rate: {slab.rate}%</p>
+                  <p className="text-xs text-gray-400">Rate: {(slab.rate * 100)}%</p>
                 </div>
               );
             })}
@@ -305,7 +305,7 @@ export default function Home() {
                 <span className="font-semibold">Standard Deduction:</span> ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k
               </p>
               <p className="text-xs text-gray-400">
-                <span className="font-semibold">Cess:</span> {taxSlabData.cessRate}%
+                <span className="font-semibold">Cess:</span> {(taxSlabData.cessRate * 100)}%
               </p>
             </div>
           </div>
