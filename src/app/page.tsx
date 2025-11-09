@@ -281,10 +281,10 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col lg:flex-row items-start justify-start px-6 py-8 md:p-24 gap-6 bg-black">
+    <main className="flex min-h-screen flex-col lg:flex-row items-start justify-start px-6 py-8 md:p-12 gap-6 bg-black">
       {/* Left Sidebar - Tax Slabs (Desktop Only) */}
       {!loading && taxSlabData && (
-        <aside className="hidden lg:block lg:w-80 bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-24">
+        <aside className="hidden lg:block lg:w-80 bg-zinc-900 border border-zinc-800 rounded-lg p-6 sticky top-10">
           <h3 className="text-lg font-bold mb-4 text-white">Tax Slabs ({selectedYear})</h3>
           <div className="space-y-3">
             {taxSlabData.slabs.map((slab, index) => {
@@ -491,6 +491,13 @@ export default function Home() {
                             {formatMoney(incomeDetails.inHandMonthlySalary)}
                           </span>
                         </p>
+                        <hr className="my-1 border-zinc-800" />
+                        <p className="font-semibold text-gray-400">
+                          💸 Extra Cash (vs Previous) :{"   "}
+                          <span className="text-cyan-400 text-lg">
+                            +{formatMoney(incomeDetails.inHandMonthlySalary - calculateIncomeDetails(previousSalary, pfType, pfPercentage, pfFixedAmount).inHandMonthlySalary)}
+                          </span>
+                        </p>
                       </div>
                     </div>
                   );
@@ -501,7 +508,7 @@ export default function Home() {
             {/* Table View */}
             {viewMode === 'table' && (
               <div className="mb-32 lg:mb-0 -mx-6 md:mx-0">
-                <div className="overflow-auto border border-zinc-800 rounded-lg px-4 sm:px-6">
+                <div className="overflow-auto border border-zinc-800 rounded-lg px-4 md:px-0">
                   <table className="w-full border-collapse bg-zinc-900">
                     <thead>
                       <tr className="border-b border-zinc-800">
@@ -509,7 +516,7 @@ export default function Home() {
                           Metric
                         </th>
                         {salaries.map((salary, index) => (
-                          <th key={index} className="px-6 py-3 text-left text-sm font-semibold text-white min-w-[180px]">
+                          <th key={index} className="pl-6 pr-2 py-3 text-left text-sm font-semibold text-white min-w-[180px]">
                             <div className="flex items-center justify-between">
                               <span>Variation {index + 1}</span>
                               {salaries.length > 1 && (
@@ -528,11 +535,11 @@ export default function Home() {
                     </thead>
                     <tbody>
                       <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
-                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                        <td className="px-6 py-4 text-xs font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
                           New CTC (Annual)
                         </td>
                         {salaries.map((salary, index) => (
-                          <td key={index} className="px-6 py-4">
+                          <td key={index} className="pl-6 pr-2 py-4">
                             <input
                               type="number"
                               value={salary}
@@ -544,76 +551,92 @@ export default function Home() {
                         ))}
                       </tr>
                       <tr className="bg-yellow-900/40 hover:bg-yellow-900/60 border-b border-zinc-800">
-                        <td className="px-6 py-4 text-sm font-semibold text-white border-r-2 border-zinc-800 bg-yellow-900 sticky left-0 z-30">
+                        <td className="px-6 py-4 text-xs font-semibold text-white border-r-2 border-zinc-800 bg-yellow-900 sticky left-0 z-30">
                           📈 Hike (%)
                         </td>
                         {salaries.map((salary, index) => (
-                          <td key={index} className="px-6 py-4 text-green-400 font-bold text-lg">
+                          <td key={index} className="pl-6 pr-2 py-4 text-green-400 font-bold text-lg">
                             +{hike(salary, previousSalary).toFixed(1)}%
                           </td>
                         ))}
                       </tr>
                       <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
-                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                        <td className="px-6 py-4 text-xs font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
                           Employer PF (Monthly)
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
                           return (
-                            <td key={index} className="px-6 py-4 text-sm text-gray-400">
+                            <td key={index} className="pl-6 pr-2 py-4 text-sm text-gray-400">
                               {formatMoney(incomeDetails.monthlyEmployerPf)}
                             </td>
                           );
                         })}
                       </tr>
                       <tr className="bg-blue-900/40 hover:bg-blue-900/60 border-b border-zinc-800">
-                        <td className="px-6 py-4 text-sm font-semibold text-white border-r-2 border-zinc-800 bg-blue-900 sticky left-0 z-30">
+                        <td className="px-6 py-4 text-xs font-semibold text-white border-r-2 border-zinc-800 bg-blue-900 sticky left-0 z-30">
                           💵 Gross Monthly
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
                           return (
-                            <td key={index} className="px-6 py-4 text-sm font-semibold text-white">
+                            <td key={index} className="pl-6 pr-2 py-4 text-sm font-semibold text-white">
                               {formatMoney(incomeDetails.grossMonthlyIncome)}
                             </td>
                           );
                         })}
                       </tr>
                       <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
-                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                        <td className="px-6 py-4 text-xs font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
                           Tax (Monthly)
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
                           return (
-                            <td key={index} className="px-6 py-4 text-sm text-red-400">
+                            <td key={index} className="pl-6 pr-2 py-4 text-sm text-red-400">
                               -{formatMoney(incomeDetails.monthlyTaxDeduction)}
                             </td>
                           );
                         })}
                       </tr>
                       <tr className="hover:bg-zinc-800/50 border-b border-zinc-800">
-                        <td className="px-6 py-4 text-sm font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
+                        <td className="px-6 py-4 text-xs font-medium text-white border-r-2 border-zinc-800 bg-zinc-900 sticky left-0 z-30">
                           PF (Employee)
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
                           return (
-                            <td key={index} className="px-6 py-4 text-sm text-orange-400">
+                            <td key={index} className="pl-6 pr-2 py-4 text-sm text-orange-400">
                               -{formatMoney(incomeDetails.monthlyPfDeduction)}
                             </td>
                           );
                         })}
                       </tr>
                       <tr className="bg-green-900/40 hover:bg-green-900/60">
-                        <td className="px-6 py-4 text-sm font-bold text-white border-r-2 border-zinc-800 bg-green-900 sticky left-0 z-30">
+                        <td className="px-6 py-4 text-xs font-bold text-white border-r-2 border-zinc-800 bg-green-900 sticky left-0 z-30">
                           💰 In-Hand Monthly
                         </td>
                         {salaries.map((salary, index) => {
                           const incomeDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
                           return (
-                            <td key={index} className="px-6 py-4 text-base font-bold text-green-400">
+                            <td key={index} className="pl-6 pr-2 py-4 text-base font-bold text-green-400">
                               {formatMoney(incomeDetails.inHandMonthlySalary)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      <tr className="bg-cyan-900/40 hover:bg-cyan-900/60 border-t-2 border-cyan-700">
+                        <td className="px-6 py-4 text-xs font-bold text-white border-r-2 border-zinc-800 bg-cyan-900 sticky left-0 z-30">
+                          💸 Extra Cash (vs Previous)
+                        </td>
+                        {salaries.map((salary, index) => {
+                          const currentDetails = calculateIncomeDetails(salary, pfType, pfPercentage, pfFixedAmount);
+                          const previousDetails = calculateIncomeDetails(previousSalary, pfType, pfPercentage, pfFixedAmount);
+                          const extraCash = currentDetails.inHandMonthlySalary - previousDetails.inHandMonthlySalary;
+                          const isPositive = extraCash > 0;
+                          return (
+                            <td key={index} className={`px-6 py-4 text-base font-bold ${isPositive ? 'text-cyan-400' : 'text-red-400'}`}>
+                              {isPositive ? '+' : ''}{formatMoney(extraCash)}
                             </td>
                           );
                         })}
