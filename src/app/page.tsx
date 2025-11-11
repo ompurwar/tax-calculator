@@ -191,6 +191,65 @@ export default function Home() {
       : 0;
   };
 
+  /**
+   * Calculate Rebate under Section 87A
+   * 
+   * @param taxableIncome - Income after standard deduction
+   * @param slabTaxBeforeCess - Regular slab tax (before cess, excluding special-rate income)
+   * @param rebateConfig - Rebate configuration from tax slab data (amount cap & income threshold)
+   * @param isResidentIndividual - Residency status (rebate only for resident individuals)
+   * @returns Rebate amount between 0 and the year's cap
+   */
+  const calculateRebate87A = (
+    taxableIncome: number,
+    slabTaxBeforeCess: number,
+    rebateConfig: { amount: number; incomeThreshold: number } | undefined,
+    isResidentIndividual: boolean = true
+  ): number => {
+    // Validation: Input sanitization
+    if (
+      taxableIncome < 0 ||
+      slabTaxBeforeCess < 0 ||
+      isNaN(taxableIncome) ||
+      isNaN(slabTaxBeforeCess)
+    ) {
+      console.error('Invalid rebate calculation inputs', { taxableIncome, slabTaxBeforeCess });
+      return 0;
+    }
+
+    // No rebate config available
+    if (!rebateConfig) {
+      return 0;
+    }
+
+    const { amount: maxRebate, incomeThreshold } = rebateConfig;
+
+    // Eligibility Rule 1: Non-resident individuals are not eligible
+    if (!isResidentIndividual) {
+      return 0;
+    }
+
+    // Eligibility Rule 2: Cliff rule - income must be ≤ threshold
+    // If income exceeds threshold by even ₹1, rebate = 0
+    if (taxableIncome > incomeThreshold) {
+      return 0;
+    }
+
+    // Eligibility Rule 3: No tax, no rebate
+    if (slabTaxBeforeCess <= 0) {
+      return 0;
+    }
+
+    // Rebate Amount Rule: min(slab tax, max rebate cap)
+    // Cannot exceed the actual tax liability or the year's cap
+    const rebateAmount = Math.min(slabTaxBeforeCess, maxRebate);
+
+    // Guard: Ensure rebate is non-negative and doesn't exceed tax
+    const finalRebate = Math.max(0, Math.min(rebateAmount, slabTaxBeforeCess));
+
+    return Math.round(finalRebate); // Round to nearest rupee
+  };
+
   const calculateIncomeDetails = (annualIncome: number, pfType: 'percentage' | 'fixed', pfPercent: number, pfFixed: number) => {
     if (!taxSlabData) {
       return {
@@ -264,14 +323,26 @@ export default function Home() {
       return tax;
     };
 
-    // Compute the total tax
+    // Compute the total tax (slab-based, before rebate & cess)
     const totalTax = computeTax(taxableIncome);
 
-    // Compute the cess
-    const cess = totalTax * cessRate;
+    // Apply rebate under Section 87A (before cess)
+    // Rebate reduces the slab tax if income ≤ threshold
+    const rebateAmount = calculateRebate87A(
+      taxableIncome,
+      totalTax,
+      taxSlabData.rebate,
+      true // Assuming resident individual for this calculator
+    );
+
+    // Tax after rebate
+    const taxAfterRebate = Math.max(0, totalTax - rebateAmount);
+
+    // Compute the cess on tax after rebate
+    const cess = taxAfterRebate * cessRate;
 
     // Total tax including cess
-    const totalTaxWithCess = Math.max(0, totalTax + cess);
+    const totalTaxWithCess = taxAfterRebate + cess;
 
     // Compute monthly details
     const grossMonthlyIncome = actualGrossAnnual / 12;
@@ -389,8 +460,16 @@ export default function Home() {
     }
 
     const cess = totalTax * cessRate;
+    
+    // Calculate rebate under Section 87A
+    const rebateAmount = calculateRebate87A(
+      taxableIncome,
+      totalTax,
+      taxSlabData.rebate,
+      true // Assuming resident individual
+    );
 
-    return { slabDetails, totalTax, cess };
+    return { slabDetails, totalTax, cess, rebateAmount };
   };
 
   return (
@@ -457,13 +536,24 @@ export default function Home() {
                       <span className="text-gray-400">Cess ({(taxSlabData.cessRate * 100)}%):</span>
                       <span className="font-semibold text-white">{formatMoney(breakdown.cess)}</span>
                     </div>
+                    {breakdown.rebateAmount && breakdown.rebateAmount > 0 && (
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-gray-400">Rebate u/s 87A:</span>
+                        <span className="font-semibold text-green-400">-{formatMoney(breakdown.rebateAmount)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm pt-1.5 border-t border-zinc-700">
                       <span className="text-gray-300 font-semibold">Total Tax:</span>
-                      <span className="font-bold text-red-400">{formatMoney(breakdown.totalTax + breakdown.cess)}</span>
+                      <span className="font-bold text-red-400">{formatMoney(Math.max(0, breakdown.totalTax + breakdown.cess - (breakdown.rebateAmount || 0)))}</span>
                     </div>
                     <div className="text-[10px] text-gray-500 mt-1">
                       Std. Deduction: ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k applied
                     </div>
+                    {taxSlabData.rebate && (
+                      <div className="text-[10px] text-gray-500 mt-1">
+                        Rebate: Eligible if income ≤ ₹{(taxSlabData.rebate.incomeThreshold / 100000).toFixed(1)}L (max ₹{(taxSlabData.rebate.amount / 1000).toFixed(1)}k)
+                      </div>
+                    )}
                   </div>
                 </>
               );
@@ -582,34 +672,46 @@ export default function Home() {
                     return (
                       <>
                         {breakdown.slabDetails.map((detail, index) => (
-                          <div key={index} className="border-l-4 border-blue-500 pl-3 py-2 bg-zinc-800/50 rounded">
-                            <p className="text-xs font-semibold text-gray-200">{detail.range}</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              Taxable: {formatMoney(detail.taxableAmount)}
-                            </p>
-                            <p className="text-xs text-gray-400">Rate: {detail.rate}%</p>
-                            <p className="text-xs font-semibold text-red-400 mt-1">
-                              Tax: {formatMoney(detail.tax)}
-                            </p>
+                          <div key={index} className="border-l-4 border-blue-500 pl-2 py-1.5 bg-zinc-800/50 rounded">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-gray-200">{detail.range}</p>
+                              <p className="text-xs font-semibold text-red-400">{formatMoney(detail.tax)}</p>
+                            </div>
+                            <div className="flex items-center justify-between mt-0.5">
+                              <p className="text-[10px] text-gray-400">
+                                {formatMoney(detail.taxableAmount)} @ {detail.rate}%
+                              </p>
+                            </div>
                           </div>
                         ))}
                         
-                        <div className="mt-4 pt-4 border-t border-zinc-700 space-y-2">
-                          <div className="flex justify-between text-xs">
+                        <div className="mt-3 pt-3 border-t border-zinc-700 space-y-1.5">
+                          <div className="flex justify-between text-[10px]">
                             <span className="text-gray-400">Subtotal:</span>
                             <span className="font-semibold text-white">{formatMoney(breakdown.totalTax)}</span>
                           </div>
-                          <div className="flex justify-between text-xs">
+                          {breakdown.rebateAmount && breakdown.rebateAmount > 0 && (
+                            <div className="flex justify-between text-[10px]">
+                              <span className="text-gray-400">Rebate u/s 87A:</span>
+                              <span className="font-semibold text-green-400">-{formatMoney(breakdown.rebateAmount)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-[10px]">
                             <span className="text-gray-400">Cess ({(taxSlabData.cessRate * 100)}%):</span>
                             <span className="font-semibold text-white">{formatMoney(breakdown.cess)}</span>
                           </div>
-                          <div className="flex justify-between text-sm pt-2 border-t border-zinc-700">
+                          <div className="flex justify-between text-sm pt-1.5 border-t border-zinc-700">
                             <span className="text-gray-300 font-semibold">Total Tax:</span>
-                            <span className="font-bold text-red-400">{formatMoney(breakdown.totalTax + breakdown.cess)}</span>
+                            <span className="font-bold text-red-400">{formatMoney(Math.max(0, breakdown.totalTax + breakdown.cess - (breakdown.rebateAmount || 0)))}</span>
                           </div>
-                          <div className="text-xs text-gray-500 mt-2">
-                            Standard Deduction: ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k applied
+                          <div className="text-[10px] text-gray-500 mt-1">
+                            Std. Deduction: ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k applied
                           </div>
+                          {taxSlabData.rebate && (
+                            <div className="text-[10px] text-gray-500 mt-1 p-1.5 bg-zinc-800/50 rounded border border-zinc-700/50">
+                              <span className="text-blue-400 font-semibold">💡 Rebate:</span> Eligible if income ≤ ₹{(taxSlabData.rebate.incomeThreshold / 100000).toFixed(1)}L (max ₹{(taxSlabData.rebate.amount / 1000).toFixed(1)}k)
+                            </div>
+                          )}
                         </div>
                       </>
                     );
@@ -687,7 +789,7 @@ export default function Home() {
                     <div
                       key={index}
                       onClick={() => setSelectedVariationIndex(index)}
-                      className={`p-4 pr-6 bg-zinc-900 border-2 rounded-lg flex flex-col gap-3 relative transition-all cursor-pointer ${
+                      className={`p-4 bg-zinc-900 border-2 rounded-lg flex flex-col gap-3 relative transition-all cursor-pointer ${
                         isSelected 
                           ? 'border-blue-500 shadow-lg shadow-blue-500/20' 
                           : 'border-zinc-800 hover:border-zinc-700'
@@ -696,7 +798,7 @@ export default function Home() {
                       {salaries.length > 1 && (
                         <button
                           onClick={() => removeSalaryVariation(index)}
-                          className="absolute top-2 right-2 border-2 border-red-500/50 text-red-400 w-10 h-10 rounded-lg hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center transition-all"
+                          className="absolute top-2 right-2 border-2 border-red-500/50 text-red-400 w-9 h-9 rounded-lg hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center transition-all"
                           title="Remove this variation"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -704,10 +806,20 @@ export default function Home() {
                       )}
                       <label htmlFor={`newSalary-${index}`} className="text-gray-400 text-sm">
                         New CTC{" "}
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-900/50 border border-green-700 rounded-full text-green-400 font-semibold text-xs">
-                          <TrendingUp className="w-3 h-3" />
-                          +{hike(salary, previousSalary).toFixed(1)}% Hike
-                        </span>
+                        {(() => {
+                          const hikePercentage = hike(salary, previousSalary);
+                          const isPositive = hikePercentage >= 0;
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 border rounded-full font-semibold text-xs ${
+                              isPositive 
+                                ? 'bg-green-900/50 border-green-700 text-green-400' 
+                                : 'bg-red-900/50 border-red-700 text-red-400'
+                            }`}>
+                              <TrendingUp className="w-3 h-3" />
+                              {isPositive ? '+' : ''}{hikePercentage.toFixed(1)}% Hike
+                            </span>
+                          );
+                        })()}
                       </label>
                       <div className="flex gap-1.5 mb-4 items-stretch">
                         <button
@@ -725,7 +837,7 @@ export default function Home() {
                           value={salary}
                           onChange={(e) => handleIncomeChange(e, index)}
                           onClick={(e) => e.stopPropagation()}
-                          className="border border-zinc-700 bg-zinc-800 p-2 flex-1 min-w-0 text-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="border border-zinc-700 bg-zinc-800 p-2 flex-1 min-w-0 w-3 text-white rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="Enter your annual CTC"
                         />
                         <button
@@ -814,7 +926,7 @@ export default function Home() {
                                       e.stopPropagation();
                                       removeSalaryVariation(index);
                                     }}
-                                    className="ml-2 border-2 border-red-500/50 text-red-400 w-10 h-10 rounded-lg hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center transition-all"
+                                    className="ml-2 border-2 border-red-500/50 text-red-400 w-9 h-9 rounded-lg hover:bg-red-500/10 hover:border-red-500 flex items-center justify-center transition-all"
                                     title="Remove this variation"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -860,16 +972,18 @@ export default function Home() {
                           </div>
                         </td>
                         {salaries.map((salary, index) => {
+                          const hikePercentage = hike(salary, previousSalary);
+                          const isPositive = hikePercentage >= 0;
                           const isSelected = index === selectedVariationIndex;
                           return (
                             <td 
                               key={index} 
                               onClick={() => setSelectedVariationIndex(index)}
-                              className={`pl-6 pr-2 py-4 text-green-400 font-bold text-lg cursor-pointer transition-colors ${
-                                isSelected ? 'bg-blue-900/20' : ''
-                              }`}
+                              className={`pl-6 pr-2 py-4 font-bold text-lg cursor-pointer transition-colors ${
+                                isPositive ? 'text-green-400' : 'text-red-400'
+                              } ${isSelected ? 'bg-blue-900/20' : ''}`}
                             >
-                              +{hike(salary, previousSalary).toFixed(1)}%
+                              {isPositive ? '+' : ''}{hikePercentage.toFixed(1)}%
                             </td>
                           );
                         })}

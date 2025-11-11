@@ -3,6 +3,11 @@ export interface TaxSlab {
   rate: number;
 }
 
+export interface Rebate {
+  amount: number; // Maximum rebate cap for the year
+  incomeThreshold: number; // Income threshold for eligibility (cliff rule)
+}
+
 export interface TaxSlabDocument {
   _id?: string;
   assessmentYear: string; // e.g., "2024-25"
@@ -10,6 +15,7 @@ export interface TaxSlabDocument {
   slabs: TaxSlab[];
   standardDeduction: number;
   cessRate: number;
+  rebate?: Rebate;
   createdAt?: Date;
   updatedAt?: Date;
 }
