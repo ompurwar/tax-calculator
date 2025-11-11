@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { TaxSlabDocument } from '@/types/tax';
 
+// Mark as dynamic route for database queries
+export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Revalidate every hour
+
 export async function GET() {
   try {
     const client = await clientPromise;
