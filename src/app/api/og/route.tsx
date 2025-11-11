@@ -1,11 +1,14 @@
 import { ImageResponse } from "@vercel/og";
 import { NextRequest } from "next/server";
 
+// Edge runtime for optimal performance
 export const runtime = "edge";
 
 /**
  * Dynamic OG Image Generator
  * Creates social media preview images with salary information
+ * 
+ * Usage: /api/og?title=Title&ctc=2400000&inhand=133837&ay=2026-27&hike=15.5
  */
 export async function GET(request: NextRequest) {
   try {
@@ -25,16 +28,10 @@ export async function GET(request: NextRequest) {
             height: "100%",
             width: "100%",
             display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
             backgroundColor: "#0b0f19",
-            backgroundImage:
-              "radial-gradient(circle at 25px 25px, #1a1f2e 2%, transparent 0%), radial-gradient(circle at 75px 75px, #1a1f2e 2%, transparent 0%)",
-            backgroundSize: "100px 100px",
+            position: "relative",
           }}
         >
-          {/* Main Container */}
           <div
             style={{
               display: "flex",
@@ -45,7 +42,6 @@ export async function GET(request: NextRequest) {
               width: "100%",
             }}
           >
-            {/* Title */}
             <div
               style={{
                 fontSize: 48,
@@ -53,12 +49,12 @@ export async function GET(request: NextRequest) {
                 color: "white",
                 marginBottom: 20,
                 textAlign: "center",
+                display: "flex",
               }}
             >
               {title}
             </div>
 
-            {/* Assessment Year Badge */}
             <div
               style={{
                 fontSize: 24,
@@ -67,12 +63,12 @@ export async function GET(request: NextRequest) {
                 padding: "8px 24px",
                 backgroundColor: "#1e3a8a",
                 borderRadius: 8,
+                display: "flex",
               }}
             >
               AY {ay} • New Regime
             </div>
 
-            {/* Salary Information */}
             {ctc && (
               <div
                 style={{
@@ -91,6 +87,7 @@ export async function GET(request: NextRequest) {
                     fontSize: 20,
                     color: "#9ca3af",
                     marginBottom: 12,
+                    display: "flex",
                   }}
                 >
                   CTC (Annual)
@@ -101,18 +98,20 @@ export async function GET(request: NextRequest) {
                     fontWeight: "bold",
                     color: "#60a5fa",
                     marginBottom: inHand ? 30 : 0,
+                    display: "flex",
                   }}
                 >
                   ₹{parseFloat(ctc).toLocaleString("en-IN")}
                 </div>
 
                 {inHand && (
-                  <>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                     <div
                       style={{
                         fontSize: 32,
                         color: "#4ade80",
                         marginBottom: 8,
+                        display: "flex",
                       }}
                     >
                       ↓
@@ -122,6 +121,7 @@ export async function GET(request: NextRequest) {
                         fontSize: 20,
                         color: "#9ca3af",
                         marginBottom: 12,
+                        display: "flex",
                       }}
                     >
                       In-Hand (Monthly)
@@ -131,16 +131,16 @@ export async function GET(request: NextRequest) {
                         fontSize: 56,
                         fontWeight: "bold",
                         color: "#4ade80",
+                        display: "flex",
                       }}
                     >
                       ₹{parseFloat(inHand).toLocaleString("en-IN")}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* Hike Badge */}
             {hike && (
               <div
                 style={{
@@ -155,6 +155,7 @@ export async function GET(request: NextRequest) {
                     parseFloat(hike) >= 0
                       ? "2px solid #4ade80"
                       : "2px solid #ef4444",
+                  display: "flex",
                 }}
               >
                 {parseFloat(hike) >= 0 ? "+" : ""}
@@ -162,13 +163,13 @@ export async function GET(request: NextRequest) {
               </div>
             )}
 
-            {/* Footer */}
             <div
               style={{
                 position: "absolute",
                 bottom: 40,
                 fontSize: 18,
                 color: "#6b7280",
+                display: "flex",
               }}
             >
               Tax Negotiation Tool • CTC to In-Hand Salary Calculator
