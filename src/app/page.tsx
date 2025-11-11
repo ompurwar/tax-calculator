@@ -250,9 +250,23 @@ export default function Home() {
     return Math.round(finalRebate); // Round to nearest rupee
   };
 
-  const calculateIncomeDetails = (annualIncome: number, pfType: 'percentage' | 'fixed', pfPercent: number, pfFixed: number) => {
+  /**
+   * Centralized Tax Calculation Function
+   * Calculates all tax-related details for a given annual income
+   * Returns both detailed breakdown and monthly income details
+   */
+  const calculateTaxDetails = (annualIncome: number, pfType: 'percentage' | 'fixed', pfPercent: number, pfFixed: number) => {
     if (!taxSlabData) {
       return {
+        // Slab breakdown
+        slabDetails: [],
+        totalTax: 0,
+        rebateAmount: 0,
+        taxAfterRebate: 0,
+        cess: 0,
+        totalTaxWithCess: 0,
+        taxableIncome: 0,
+        // Monthly details
         grossMonthlyIncome: 0,
         monthlyTaxDeduction: 0,
         monthlyPfDeduction: 0,
@@ -263,164 +277,36 @@ export default function Home() {
 
     const { standardDeduction, cessRate, slabs } = taxSlabData;
 
-    // Calculate employer PF contribution (not part of in-hand salary)
+    // 1. Calculate PF contributions
     let monthlyEmployerPf = 0;
     let monthlyEmployeePf = 0;
     let actualGrossAnnual = annualIncome;
     
     if (pfType === 'percentage') {
-      // If input is CTC, employer's PF is part of it
-      // Employer PF = (CTC * pfPercent) / 100 / 12
       monthlyEmployerPf = (annualIncome * pfPercent) / 100 / 12;
-      
-      // Actual gross (what you receive) = CTC - Employer PF
       actualGrossAnnual = annualIncome - (monthlyEmployerPf * 12);
-      
-      // Employee PF is calculated on actual gross
       monthlyEmployeePf = (actualGrossAnnual * pfPercent) / 100 / 12;
     } else {
-      // In fixed mode, assume the fixed amount is employee PF only
       monthlyEmployeePf = pfFixed;
-      monthlyEmployerPf = pfFixed; // Matching contribution
-      actualGrossAnnual = annualIncome - (monthlyEmployerPf * 12);
-    }
-    
-    // Deduct the standard deduction from the actual gross annual
-    const taxableIncome = Math.max(0, actualGrossAnnual - standardDeduction);
-
-    // Function to compute total tax based on slabs
-    const computeTax = (income: number) => {
-      if (income <= 0) return 0;
-      
-      let tax = 0;
-      let remainingIncome = income;
-      let previousLimit = 0;
-
-      for (let i = 0; i < slabs.length; i++) {
-        const slab = slabs[i];
-        
-        // Handle the last slab which goes to Infinity (stored as null in MongoDB)
-        if (slab.upTo === null || slab.upTo === Infinity) {
-          const taxInSlab = remainingIncome * slab.rate;
-          tax += taxInSlab;
-          break;
-        }
-        
-        const slabRange = slab.upTo - previousLimit;
-        
-        if (remainingIncome > slabRange) {
-          const taxInSlab = slabRange * slab.rate;
-          tax += taxInSlab;
-          remainingIncome -= slabRange;
-          previousLimit = slab.upTo;
-        } else {
-          const taxInSlab = remainingIncome * slab.rate;
-          tax += taxInSlab;
-          break;
-        }
-      }
-
-      return tax;
-    };
-
-    // Compute the total tax (slab-based, before rebate & cess)
-    const totalTax = computeTax(taxableIncome);
-
-    // Apply rebate under Section 87A (before cess)
-    // Rebate reduces the slab tax if income ≤ threshold
-    const rebateAmount = calculateRebate87A(
-      taxableIncome,
-      totalTax,
-      taxSlabData.rebate,
-      true // Assuming resident individual for this calculator
-    );
-
-    // Tax after rebate
-    const taxAfterRebate = Math.max(0, totalTax - rebateAmount);
-
-    // Compute the cess on tax after rebate
-    const cess = taxAfterRebate * cessRate;
-
-    // Total tax including cess
-    const totalTaxWithCess = taxAfterRebate + cess;
-
-    // Compute monthly details
-    const grossMonthlyIncome = actualGrossAnnual / 12;
-    const monthlyTaxDeduction = totalTaxWithCess / 12;
-    const inHandMonthlySalary = grossMonthlyIncome - monthlyTaxDeduction - monthlyEmployeePf;
-
-    return {
-      grossMonthlyIncome: grossMonthlyIncome,
-      monthlyTaxDeduction: monthlyTaxDeduction,
-      monthlyPfDeduction: monthlyEmployeePf,
-      monthlyEmployerPf: monthlyEmployerPf,
-      inHandMonthlySalary: inHandMonthlySalary,
-    };
-  };
-
-  const handleIncomeChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    idx: number = 0
-  ) => {
-    const newSalary = parseFloat(e.target.value);
-    setSalaries((prevSalaries) => {
-      const updatedSalaries = [...prevSalaries];
-      updatedSalaries[idx] = newSalary;
-      return updatedSalaries;
-    });
-  };
-
-  const addSalaryVariation = () => {
-    if (salaries.length < 5) {
-      const lastSalary = salaries[salaries.length - 1];
-      setSalaries([...salaries, lastSalary + 100000]);
-    }
-  };
-
-  const removeSalaryVariation = (idx: number) => {
-    if (salaries.length > 1) {
-      setSalaries(salaries.filter((_, i) => i !== idx));
-    }
-  };
-
-  const adjustSalary = (idx: number, amount: number) => {
-    setSalaries((prevSalaries) => {
-      const updatedSalaries = [...prevSalaries];
-      updatedSalaries[idx] = Math.max(0, updatedSalaries[idx] + amount);
-      return updatedSalaries;
-    });
-  };
-
-  // Calculate tax breakdown by slab for a specific salary
-  const calculateTaxBreakdown = (annualIncome: number, pfType: 'percentage' | 'fixed', pfPercent: number, pfFixed: number) => {
-    if (!taxSlabData) return { slabDetails: [], totalTax: 0, cess: 0 };
-
-    const { standardDeduction, cessRate, slabs } = taxSlabData;
-
-    // Calculate actual gross annual (after employer PF)
-    let monthlyEmployerPf = 0;
-    let actualGrossAnnual = annualIncome;
-    
-    if (pfType === 'percentage') {
-      monthlyEmployerPf = (annualIncome * pfPercent) / 100 / 12;
-      actualGrossAnnual = annualIncome - (monthlyEmployerPf * 12);
-    } else {
       monthlyEmployerPf = pfFixed;
       actualGrossAnnual = annualIncome - (monthlyEmployerPf * 12);
     }
-
+    
+    // 2. Calculate taxable income
     const taxableIncome = Math.max(0, actualGrossAnnual - standardDeduction);
 
+    // 3. Calculate tax slab-by-slab with detailed breakdown
     const slabDetails: { range: string; taxableAmount: number; rate: number; tax: number }[] = [];
+    let totalTax = 0;
     let remainingIncome = taxableIncome;
     let previousLimit = 0;
-    let totalTax = 0;
 
     for (let i = 0; i < slabs.length; i++) {
       const slab = slabs[i];
       
       if (remainingIncome <= 0) break;
 
+      // Handle the last slab (Infinity)
       if (slab.upTo === null || slab.upTo === Infinity) {
         const taxInSlab = remainingIncome * slab.rate;
         slabDetails.push({
@@ -459,9 +345,7 @@ export default function Home() {
       }
     }
 
-    const cess = totalTax * cessRate;
-    
-    // Calculate rebate under Section 87A
+    // 4. Apply rebate under Section 87A (before cess)
     const rebateAmount = calculateRebate87A(
       taxableIncome,
       totalTax,
@@ -469,7 +353,92 @@ export default function Home() {
       true // Assuming resident individual
     );
 
-    return { slabDetails, totalTax, cess, rebateAmount };
+    // 5. Calculate tax after rebate
+    const taxAfterRebate = Math.max(0, totalTax - rebateAmount);
+
+    // 6. Calculate cess on tax after rebate
+    const cess = taxAfterRebate * cessRate;
+
+    // 7. Total tax including cess
+    const totalTaxWithCess = taxAfterRebate + cess;
+
+    // 8. Calculate monthly details
+    const grossMonthlyIncome = actualGrossAnnual / 12;
+    const monthlyTaxDeduction = totalTaxWithCess / 12;
+    const inHandMonthlySalary = grossMonthlyIncome - monthlyTaxDeduction - monthlyEmployeePf;
+
+    return {
+      // Slab breakdown
+      slabDetails,
+      totalTax,
+      rebateAmount,
+      taxAfterRebate,
+      cess,
+      totalTaxWithCess,
+      taxableIncome,
+      // Monthly details
+      grossMonthlyIncome,
+      monthlyTaxDeduction,
+      monthlyPfDeduction: monthlyEmployeePf,
+      monthlyEmployerPf,
+      inHandMonthlySalary,
+    };
+  };
+
+  // Legacy function - kept for backward compatibility, uses centralized logic
+  const calculateIncomeDetails = (annualIncome: number, pfType: 'percentage' | 'fixed', pfPercent: number, pfFixed: number) => {
+    const details = calculateTaxDetails(annualIncome, pfType, pfPercent, pfFixed);
+    return {
+      grossMonthlyIncome: details.grossMonthlyIncome,
+      monthlyTaxDeduction: details.monthlyTaxDeduction,
+      monthlyPfDeduction: details.monthlyPfDeduction,
+      monthlyEmployerPf: details.monthlyEmployerPf,
+      inHandMonthlySalary: details.inHandMonthlySalary,
+    };
+  };
+
+  // Legacy function - kept for backward compatibility, uses centralized logic
+  const calculateTaxBreakdown = (annualIncome: number, pfType: 'percentage' | 'fixed', pfPercent: number, pfFixed: number) => {
+    const details = calculateTaxDetails(annualIncome, pfType, pfPercent, pfFixed);
+    return {
+      slabDetails: details.slabDetails,
+      totalTax: details.totalTax,
+      cess: details.cess,
+      rebateAmount: details.rebateAmount,
+    };
+  };
+
+  const handleIncomeChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    idx: number = 0
+  ) => {
+    const newSalary = parseFloat(e.target.value);
+    setSalaries((prevSalaries) => {
+      const updatedSalaries = [...prevSalaries];
+      updatedSalaries[idx] = newSalary;
+      return updatedSalaries;
+    });
+  };
+
+  const addSalaryVariation = () => {
+    if (salaries.length < 5) {
+      const lastSalary = salaries[salaries.length - 1];
+      setSalaries([...salaries, lastSalary + 100000]);
+    }
+  };
+
+  const removeSalaryVariation = (idx: number) => {
+    if (salaries.length > 1) {
+      setSalaries(salaries.filter((_, i) => i !== idx));
+    }
+  };
+
+  const adjustSalary = (idx: number, amount: number) => {
+    setSalaries((prevSalaries) => {
+      const updatedSalaries = [...prevSalaries];
+      updatedSalaries[idx] = Math.max(0, updatedSalaries[idx] + amount);
+      return updatedSalaries;
+    });
   };
 
   return (
@@ -532,19 +501,19 @@ export default function Home() {
                       <span className="text-gray-400">Subtotal:</span>
                       <span className="font-semibold text-white">{formatMoney(breakdown.totalTax)}</span>
                     </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-400">Cess ({(taxSlabData.cessRate * 100)}%):</span>
-                      <span className="font-semibold text-white">{formatMoney(breakdown.cess)}</span>
-                    </div>
                     {breakdown.rebateAmount && breakdown.rebateAmount > 0 && (
                       <div className="flex justify-between text-[10px]">
                         <span className="text-gray-400">Rebate u/s 87A:</span>
                         <span className="font-semibold text-green-400">-{formatMoney(breakdown.rebateAmount)}</span>
                       </div>
                     )}
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-400">Cess ({(taxSlabData.cessRate * 100)}%):</span>
+                      <span className="font-semibold text-white">{formatMoney(breakdown.cess)}</span>
+                    </div>
                     <div className="flex justify-between text-sm pt-1.5 border-t border-zinc-700">
                       <span className="text-gray-300 font-semibold">Total Tax:</span>
-                      <span className="font-bold text-red-400">{formatMoney(Math.max(0, breakdown.totalTax + breakdown.cess - (breakdown.rebateAmount || 0)))}</span>
+                      <span className="font-bold text-red-400">{formatMoney(breakdown.cess + Math.max(0, breakdown.totalTax - (breakdown.rebateAmount || 0)))}</span>
                     </div>
                     <div className="text-[10px] text-gray-500 mt-1">
                       Std. Deduction: ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k applied
@@ -702,7 +671,7 @@ export default function Home() {
                           </div>
                           <div className="flex justify-between text-sm pt-1.5 border-t border-zinc-700">
                             <span className="text-gray-300 font-semibold">Total Tax:</span>
-                            <span className="font-bold text-red-400">{formatMoney(Math.max(0, breakdown.totalTax + breakdown.cess - (breakdown.rebateAmount || 0)))}</span>
+                            <span className="font-bold text-red-400">{formatMoney(breakdown.cess + Math.max(0, breakdown.totalTax - (breakdown.rebateAmount || 0)))}</span>
                           </div>
                           <div className="text-[10px] text-gray-500 mt-1">
                             Std. Deduction: ₹{(taxSlabData.standardDeduction / 1000).toFixed(0)}k applied
