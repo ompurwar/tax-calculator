@@ -3,6 +3,15 @@ import { useState, useEffect } from "react";
 import { TrendingUp, Wallet, Receipt, Coins, DollarSign, PiggyBank, ArrowUpRight, Settings, Info, X, Plus, BarChart3, Table as TableIcon, Check, AlertCircle, ChevronDown, ChevronUp, Minus, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { TaxSlabDocument, AssessmentYear } from "@/types/tax";
 import { CTCStorage, CTCConfiguration } from "@/lib/storage";
+import StructuredData from "@/components/StructuredData";
+import {
+  generateWebAppSchema,
+  generateFAQSchema,
+  generateHowToSchema,
+  generateOrganizationSchema,
+  DEFAULT_FAQS,
+  CALCULATOR_HOWTO,
+} from "@/lib/schema";
 
 export default function Home() {
   const [salaries, setSalaries] = useState<number[]>([
@@ -442,6 +451,37 @@ export default function Home() {
   };
 
   return (
+    <>
+      {/* Structured Data for SEO and AIO/GEO */}
+      <StructuredData
+        data={[
+          generateWebAppSchema(),
+          generateFAQSchema(DEFAULT_FAQS),
+          generateHowToSchema(
+            "How to Use India Tax Calculator",
+            "Step-by-step guide to calculate in-hand salary from CTC using our India tax calculator for Assessment Year 2026-27",
+            CALCULATOR_HOWTO
+          ),
+          generateOrganizationSchema(),
+        ]}
+      />
+      
+      {/* SEO Summary for AIO/GEO Crawlers - Hidden from users but visible to crawlers */}
+      <div className="sr-only" aria-hidden="true">
+        <h1>India Income Tax Calculator - CTC to In-Hand Salary Converter (AY 2026-27)</h1>
+        <p>
+          Calculate your exact in-hand salary from CTC (Cost to Company) using India&apos;s new tax regime for Assessment Year 2026-27.
+          This comprehensive tax calculator accounts for standard deduction (₹75,000), Section 87A rebate (up to ₹25,000 for income ≤ ₹7 lakh),
+          health and education cess (4%), and Provident Fund (PF) contributions. Compare multiple salary offers side-by-side,
+          visualize tax breakdown by slab, and make informed decisions during salary negotiations.
+        </p>
+        <p>
+          Key features: Real-time tax calculation, multiple CTC comparison, detailed tax slab breakdown, PF calculator (percentage or fixed),
+          hike percentage calculator, in-hand salary projection, rebate eligibility checker, and salary variation analysis.
+          Supports Assessment Year 2026-27 under the new tax regime with simplified tax slabs.
+        </p>
+      </div>
+
     <main className="flex min-h-screen flex-col lg:flex-row items-start justify-start px-6 py-8 md:p-12 gap-6 bg-black">
             {/* Left Sidebar - Tax Slabs (Desktop Only) */}
       {!loading && taxSlabData && salaries.length > 0 && (
@@ -1288,6 +1328,7 @@ export default function Home() {
         </div>
       )}
     </main>
+    </>
   );
 }
 
